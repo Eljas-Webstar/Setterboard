@@ -647,8 +647,8 @@ function bleibenAn(){
 }
 function bleibenSetzen(an){
   try{
-    sessionStorage.setItem(BLEIBEN, an?"ja":"nein");
-    localStorage.setItem(BLEIBEN, an?"ja":"nein");
+    sessionStorage.setItem(BLEIBEN, an?"ja":"nein");   // gilt nur für dieses Fenster
+    if(an) localStorage.setItem(BLEIBEN,"ja");         // Vorgabe für neue Fenster
   }catch(e){}
 }
 function fensterNummer(){
@@ -2807,12 +2807,16 @@ function openWho(){
     if(sb) sb.auth.signOut({ scope:"local" });
     LS.del("sb_me"); zumGate();
   };
-  // Nur dieses Fenster abmelden, alle anderen Fenster laufen weiter.
+  /* Nur dieses Fenster auf einen eigenen Zugang umstellen.
+     Die dauerhafte Anmeldung wird dabei nicht angefasst, andere Fenster
+     und das Handy laufen weiter. */
   $("wechselBtn").onclick=function(){
     bleibenSetzen(false);
-    if(sb) sb.auth.signOut({ scope:"local" }).then(neustart).catch(neustart);
-    else neustart();
-    function neustart(){ location.reload(); }
+    clientWechseln(false);
+    var f=fensterClient();
+    var fertig=function(){ LS.del("sb_me"); zumGate(); toast("Nur dieses Fenster ist abgemeldet."); };
+    if(f) f.auth.signOut({ scope:"local" }).then(fertig).catch(fertig);
+    else fertig();
   };
 }
 
