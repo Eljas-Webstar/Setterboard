@@ -43,6 +43,30 @@
   --font-body:"Public Sans","Helvetica Neue",Arial,sans-serif;
   --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
 }
+
+/* Dunkler Kalender. Wird über den Schalter unter Zugänge eingestellt. */
+:root[data-theme="dunkel"]{
+  --paper:#0C1420;
+  --surface:#131E2D;
+  --surface-2:#1A283A;
+  --line:#2A3B52;
+  --line-soft:#223246;
+  --ink:#EAF1F9;
+  --ink-2:#AFC1D6;
+  --ink-3:#7D91A9;
+  --accent:#2F7FD4;
+  --accent-soft:#1B3350;
+  --accent-ink:#9CC8F2;
+  --money:#4BC79C;
+  --money-soft:#153229;
+  --ok:#4BC79C;
+  --ok-soft:#153229;
+  --bad:#F08A80;
+  --bad-soft:#3A1E1B;
+  --warn:#E3A552;
+  --warn-soft:#352719;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 26px -14px rgba(0,0,0,.7);
+}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{
@@ -126,7 +150,10 @@ main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding-inline:16px;paddin
 .heutebtn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer}
 
 /* Wochenraster auf schmalen Geraeten seitwaerts schiebbar */
-.calscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
+.calscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+/* Abstand zwischen den Feldgruppen im Terminformular */
+#schritt1>.two,#schritt2>.two{margin-bottom:12px}
 .calinner{min-width:100%}
 
 /* Monatsgitter */
@@ -1162,7 +1189,7 @@ function fahrtPruefung(datum,closer,vonMin,dauer,plzNeu,ortNeu,ausserId){
 }
 
 /* ---------------- boot ---------------- */
-function start(){ renderGate(); wire(); claudeDb(); PUSH.start(); }
+function start(){ themaAnwenden(); renderGate(); wire(); claudeDb(); PUSH.start(); }
 
 function claudeDb(){
   if(!sb){ setDiag("Supabase konnte nicht geladen werden. Internetverbindung prüfen.",true); return; }
@@ -2134,10 +2161,9 @@ function openForm(edit){
     '<div class="two">'+
       '<div class="field"><label for="f_pg">Pflegegrad</label><select id="f_pg">'+
         ['<option value="">bitte fragen</option>',
-         '<option value="antrag"'+(String(a.pflegegrad)==="antrag"?" selected":"")+'>Erstantrag läuft</option>',
-         '<option value="kein">keiner, will auch keinen stellen</option>']
+         '<option value="antrag"'+(String(a.pflegegrad)==="antrag"?" selected":"")+'>Erstantrag läuft</option>']
           .concat(["1","2","3","4","5"].map(function(g){
-            return '<option value="'+g+'"'+(String(a.pflegegrad)===g?" selected":"")+'>Pflegegrad '+g+'</option>';
+            return '<option value="'+g+'"'+(String(a.pflegegrad)===g?" selected":"")+'>PG '+g+'</option>';
           })).join("")+'</select></div>'+
       '<div class="field"><label for="f_wohn">Wohnung</label><select id="f_wohn">'+
         '<option value="eigentum"'+(a.wohnform==="eigentum"?" selected":"")+'>Eigentum</option>'+
@@ -2411,6 +2437,30 @@ function meineSetter(){
   return S.team.filter(function(m){ return m.rolle==="setter"&&m.gehoertZu===S.me.name; });
 }
 
+function thema(){
+  var t=null;
+  try{ t=localStorage.getItem("sb_thema"); }catch(e){}
+  return (t==="dunkel")?"dunkel":"hell";
+}
+function themaSetzen(t){
+  try{ localStorage.setItem("sb_thema",t); }catch(e){}
+  themaAnwenden();
+}
+function themaAnwenden(){
+  var t=thema();
+  if(t==="dunkel") document.documentElement.setAttribute("data-theme","dunkel");
+  else document.documentElement.removeAttribute("data-theme");
+  var m=document.querySelector('meta[name="theme-color"]');
+  if(m) m.setAttribute("content", t==="dunkel" ? "#0C1420" : "#1657B0");
+}
+function zeichneThema(){
+  var box=$("themaBar"); if(!box) return;
+  Array.prototype.forEach.call(box.querySelectorAll("button"),function(b){
+    b.setAttribute("aria-pressed",String(b.dataset.t===thema()));
+    b.onclick=function(){ themaSetzen(b.dataset.t); zeichneThema(); };
+  });
+}
+
 function zeichnePush(){
   var box=$("pushBox"); if(!box) return;
   var st=PUSH.status();
@@ -2441,7 +2491,7 @@ function zeichnePush(){
     p.then(function(){
       b.disabled=false;
       toast(an?"Dieses Gerät bekommt keine Mitteilungen mehr.":"Mitteilungen sind an.");
-      zeichnePush(); renderBanner();
+      zeichnePush(); zeichneThema(); renderBanner();
     }).catch(function(err){
       b.disabled=false; e.hidden=false;
       e.textContent=(err&&err.message)||"Hat nicht geklappt.";
@@ -2544,6 +2594,13 @@ function openWho(){
       'Andere Kalender sind für dich nicht sichtbar.</p>';
   }
   body+='<hr class="sep">'+
+    '<div><div class="sec-label" style="margin-bottom:6px">Darstellung</div>'+
+      '<div class="modus" id="themaBar">'+
+        '<button data-t="hell">Hell</button>'+
+        '<button data-t="dunkel">Dunkel</button>'+
+      '</div>'+
+    '</div>'+
+    '<hr class="sep">'+
     '<div><div class="sec-label" style="margin-bottom:6px">Mitteilungen aufs Handy</div>'+
       '<div id="pushBox"></div>'+
     '</div>'+
@@ -2558,7 +2615,7 @@ function openWho(){
   var okBtn=$("zugangOk");
   if(okBtn) okBtn.onclick=function(){ S.neuerZugang=null; openWho(); };
 
-  zeichnePush();
+  zeichnePush(); zeichneThema();
 
   if(istAdmin()){
     var rollenFelder=function(){
