@@ -660,26 +660,45 @@ function fensterNummer(){
   return n;
 }
 
-// Beim Laden festgelegt. Ein Wechsel geschieht immer über einen Neustart der Seite.
+// Startzustand dieses Fensters. Der Haken beim Anmelden ändert ihn jederzeit.
 var FENSTER_MODUS = !bleibenAn();
 var SPEICHER_KEY  = FENSTER_MODUS ? ("sb-fenster-"+fensterNummer()) : HAUPT_KEY;
 var SPEICHER      = FENSTER_MODUS ? window.sessionStorage : window.localStorage;
 
-var sb = (window.supabase && window.supabase.createClient)
-  ? window.supabase.createClient(SB_URL, SB_KEY,
-      { auth:{ persistSession:true, autoRefreshToken:true, storage:SPEICHER, storageKey:SPEICHER_KEY } })
-  : null;
+function clientBauen(speicher,schluessel){
+  if(!(window.supabase && window.supabase.createClient)) return null;
+  return window.supabase.createClient(SB_URL, SB_KEY,
+    { auth:{ persistSession:true, autoRefreshToken:true, storage:speicher, storageKey:schluessel } });
+}
+var sbHaupt   = clientBauen(window.localStorage, HAUPT_KEY);
+var sbFenster = null;
+function fensterClient(){
+  if(!sbFenster) sbFenster = clientBauen(window.sessionStorage, "sb-fenster-"+fensterNummer());
+  return sbFenster;
+}
+var sb = FENSTER_MODUS ? fensterClient() : sbHaupt;
 
-/* Aus dem Fenstermodus dauerhaft werden: Anmeldung umziehen und neu starten. */
-function dauerhaftMachen(){
-  try{
-    var wert=sessionStorage.getItem(SPEICHER_KEY);
-    if(wert) localStorage.setItem(HAUPT_KEY, wert);
-    sessionStorage.removeItem(SPEICHER_KEY);
-    sessionStorage.removeItem(BLEIBEN);
-  }catch(e){}
-  bleibenSetzen(true);
-  location.reload();
+/* Umschalten ohne Neustart. Alles im Board arbeitet mit der Variablen sb,
+   der Wechsel wirkt daher sofort. */
+function clientWechseln(bleiben){
+  var neu = bleiben ? sbHaupt : fensterClient();
+  if(neu===sb) return;
+  sb = neu;
+  FENSTER_MODUS = !bleiben;
+  beobachten(neu);
+}
+/* Ein Beobachter je Zugang, meldet aber nur, solange dieser Zugang der aktive ist.
+   Sonst würde ein Abmelden in einem anderen Fenster hier durchschlagen. */
+var beobachtet=[];
+function beobachten(client){
+  if(!client || beobachtet.indexOf(client)>-1) return;
+  beobachtet.push(client);
+  client.auth.onAuthStateChange(function(ereignis){
+    if(client!==sb) return;
+    if(ereignis==="SIGNED_OUT"){
+      S.me=null; $("app").hidden=true; $("untenleiste").hidden=true; $("gate").hidden=false; renderGate();
+    }
+  });
 }
 
 function kontoAnlegen(benutzer,passwort){
@@ -1252,9 +1271,7 @@ function claudeDb(){
     connect();
     if(sess) nachAnmeldung(sess.user);
   });
-  sb.auth.onAuthStateChange(function(ereignis,sess){
-    if(ereignis==="SIGNED_OUT"){ S.me=null; $("app").hidden=true; $("untenleiste").hidden=true; $("gate").hidden=false; renderGate(); }
-  });
+  beobachten(sb);
 }
 
 // Nach erfolgreicher Anmeldung die eigene Personenzeile holen
@@ -1405,8 +1422,9 @@ function renderGate(){
 function anmelden(){
   var u=benutzerNorm($("lg_user").value), pw=$("lg_pw").value, err=$("lg_err");
   err.hidden=true;
-  var kb=$("lg_bleiben");
-  if(kb) bleibenSetzen(kb.checked);
+  var kb=$("lg_bleiben"), willBleiben = kb ? kb.checked : true;
+  bleibenSetzen(willBleiben);
+  clientWechseln(willBleiben);
   if(!u||!pw){ err.hidden=false; err.textContent="Benutzername und Passwort eingeben."; return; }
   $("lg_go").disabled=true;
   sb.auth.signInWithPassword({ email:mailVon(u), password:pw }).then(function(r){
@@ -1419,7 +1437,6 @@ function anmelden(){
       return;
     }
     $("lg_pw").value="";
-    if(FENSTER_MODUS && kb && kb.checked){ dauerhaftMachen(); return; }
     nachAnmeldung(r.data.user);
   });
 }
