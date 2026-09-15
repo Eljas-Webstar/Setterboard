@@ -346,6 +346,8 @@ html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
 .check input:checked ~ span b{color:var(--accent)}
 .check input{width:auto;margin-top:2px;flex:0 0 auto}
 .slots{display:flex;flex-wrap:wrap;gap:6px}
+.merk{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;color:var(--ink-2);cursor:pointer}
+.merk input{width:auto;margin:0}
 .schrittleiste{display:flex;gap:8px;margin-bottom:4px}
 .schrittleiste .sk{flex:1;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);border-top:3px solid var(--line);padding-top:7px}
 .schrittleiste .sk[aria-current="true"]{color:var(--accent-ink);border-top-color:var(--accent)}
@@ -605,9 +607,8 @@ main{padding-bottom:86px}
         <label for="lg_pw">Passwort</label>
         <input id="lg_pw" type="password" autocomplete="current-password">
       </div>
-      <label class="check" style="margin-bottom:12px"><input type="checkbox" id="lg_bleiben" checked>
-        <span><b>Angemeldet bleiben</b><br>Ohne Haken gilt die Anmeldung nur für dieses Fenster und endet, wenn du es schließt.</span></label>
       <button class="btn primary" id="lg_go" style="width:100%">Anmelden</button>
+      <label class="merk"><input type="checkbox" id="lg_bleiben" checked><span>Angemeldet bleiben</span></label>
       <p class="err" id="lg_err" hidden style="margin-top:10px"></p>
       <p class="hint" style="margin-top:14px">
         Keinen Zugang? Dein Closer oder der Admin legt dir einen an.
@@ -634,10 +635,17 @@ var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1
                So kann man in mehreren Tabs gleichzeitig als Admin, Closer und Setter arbeiten. */
 var BLEIBEN = "sb_bleiben";
 function bleibenAn(){
-  try{ return localStorage.getItem(BLEIBEN)!=="nein"; }catch(e){ return true; }
+  try{
+    var eigen=sessionStorage.getItem(BLEIBEN);     // Wahl dieses Fensters
+    if(eigen) return eigen!=="nein";
+    return localStorage.getItem(BLEIBEN)!=="nein"; // sonst die zuletzt getroffene Wahl
+  }catch(e){ return true; }
 }
 function bleibenSetzen(an){
-  try{ localStorage.setItem(BLEIBEN, an?"ja":"nein"); }catch(e){}
+  try{
+    sessionStorage.setItem(BLEIBEN, an?"ja":"nein");
+    localStorage.setItem(BLEIBEN, an?"ja":"nein");
+  }catch(e){}
 }
 var authSpeicher = {
   getItem:function(k){
@@ -648,12 +656,15 @@ var authSpeicher = {
   },
   setItem:function(k,v){
     try{
-      if(bleibenAn()){ localStorage.setItem(k,v); sessionStorage.removeItem(k); }
-      else { sessionStorage.setItem(k,v); localStorage.removeItem(k); }
+      if(bleibenAn()) localStorage.setItem(k,v);
+      else sessionStorage.setItem(k,v);
     }catch(e){}
   },
   removeItem:function(k){
-    try{ localStorage.removeItem(k); sessionStorage.removeItem(k); }catch(e){}
+    try{
+      if(bleibenAn()) localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    }catch(e){}
   }
 };
 var sb = (window.supabase && window.supabase.createClient)
@@ -2534,7 +2545,8 @@ function zeichnePush(){
 }
 
 function openWho(){
-  var body, foot='<button class="btn ghost" id="logoutBtn">Abmelden</button>';
+  var body, foot='<button class="btn ghost" id="logoutBtn">Abmelden</button>'+
+    '<button class="btn ghost" id="wechselBtn">Hier anderes Konto</button>';
   var zugangKasten = S.neuerZugang
     ? '<div class="warnbox" style="margin-bottom:14px"><b>Zugangsdaten für '+esc(S.neuerZugang.name)+'</b><br><br>'+
       'Benutzer <b class="mono">'+esc(S.neuerZugang.user)+'</b><br>'+
@@ -2757,10 +2769,22 @@ function openWho(){
     });
   };
 
+  function zumGate(){
+    S.me=null; closeOverlay();
+    $("app").hidden=true; $("untenleiste").hidden=true; $("gate").hidden=false; renderGate();
+  }
   $("logoutBtn").onclick=function(){
     if(sb) sb.auth.signOut();
-    LS.del("sb_me"); S.me=null; closeOverlay();
-    $("app").hidden=true; $("untenleiste").hidden=true; $("gate").hidden=false; renderGate();
+    LS.del("sb_me"); zumGate();
+  };
+  // Nur dieses Fenster abmelden. Andere Fenster und das Handy bleiben angemeldet.
+  $("wechselBtn").onclick=function(){
+    bleibenSetzen(false);
+    if(sb) sb.auth.signOut({ scope:"local" });
+    try{ Object.keys(sessionStorage).forEach(function(k){ if(k.indexOf("sb-")===0) sessionStorage.removeItem(k); }); }catch(e){}
+    zumGate();
+    var kb=$("lg_bleiben"); if(kb) kb.checked=false;
+    toast("Nur dieses Fenster ist abgemeldet.");
   };
 }
 
