@@ -2,7 +2,13 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1657B0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Setterboard">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 </head>
 <body>
@@ -113,6 +119,34 @@ main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding-inline:16px;paddin
 .filters .lab{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-weight:600}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 11px;font-size:13px;color:var(--ink-2);cursor:pointer}
 .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+/* Umschalter Tag / Woche / Monat */
+.modus{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+.modus button{border:0;background:transparent;border-radius:8px;padding:7px 14px;font-size:13.5px;font-weight:600;color:var(--ink-3);cursor:pointer;line-height:1}
+.modus button[aria-pressed="true"]{background:var(--surface);color:var(--accent-ink);box-shadow:0 1px 2px rgba(15,35,70,.12)}
+.heutebtn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer}
+
+/* Wochenraster auf schmalen Geraeten seitwaerts schiebbar */
+.calscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.calinner{min-width:100%}
+
+/* Monatsgitter */
+.monkopf{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0}
+.monkopf div{padding:7px 4px;text-align:center;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.mongrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+.montag{border-left:1px solid var(--line);border-top:1px solid var(--line);min-height:104px;padding:5px 5px 6px;text-align:left;background:transparent;cursor:pointer;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.montag:nth-child(7n+1){border-left:0}
+.montag .mzahl{font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--ink-2);align-self:flex-start;line-height:1.5;min-width:22px;text-align:center;border-radius:999px}
+.montag.fremd{background:var(--surface-2)}
+.montag.fremd .mzahl{color:var(--ink-3);opacity:.6}
+.montag.heute .mzahl{background:var(--accent);color:#fff}
+.montag.gesperrt{background:repeating-linear-gradient(135deg,transparent 0 9px,var(--line-soft) 9px 18px)}
+.montag:hover{background:var(--accent-soft)}
+.mzeile{display:flex;gap:4px;align-items:baseline;font-size:11.5px;line-height:1.3;border-left:3px solid var(--st,var(--accent));padding-left:4px;border-radius:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mzeile b{font-family:var(--font-mono);font-weight:600;color:var(--ink-3);font-size:10.5px}
+.mzeile span{overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.mmehr{font-size:10.5px;color:var(--ink-3)}
+.mpunkte{display:flex;gap:3px;flex-wrap:wrap;margin-top:1px}
+.mpunkte i{width:6px;height:6px;border-radius:999px;background:var(--st,var(--accent));display:block}
 .weekwrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
 .weekmain{min-width:0}
 .side{
@@ -146,6 +180,7 @@ main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding-inline:16px;paddin
   background:var(--surface);border:1px solid var(--line);border-top:0;
   border-radius:0 0 var(--radius) var(--radius);overflow:hidden;
 }
+.calbody.tagbody{grid-template-columns:var(--axis) minmax(0,1fr)}
 .axis{position:relative}
 .axis .tick{position:absolute;right:7px;font-family:var(--font-mono);white-space:nowrap;line-height:1}
 .axis .tick.major{font-size:12px;font-weight:600;color:var(--ink-2)}
@@ -251,13 +286,19 @@ main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding-inline:16px;paddin
 .note{background:var(--surface-2);border-radius:8px;padding:10px 12px;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
 .sec-label{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-3);font-weight:600}
 .statusrow{display:flex;gap:6px;flex-wrap:wrap}
-.statusrow button{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 11px;font-size:13px;font-weight:600;cursor:pointer}
+.statusrow{gap:8px}
+.statusrow button{flex:1 1 30%;min-width:112px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:15px 10px;font-size:14.5px;font-weight:700;cursor:pointer;line-height:1.2}
 .statusrow button[data-s="stattgefunden"][aria-pressed="true"]{background:var(--ok-soft);color:var(--ok);border-color:transparent}
 .statusrow button[data-s="nichtda"][aria-pressed="true"]{background:var(--bad-soft);color:var(--bad);border-color:transparent}
 .statusrow button[data-s="folgetermin"][aria-pressed="true"]{background:var(--warn-soft);color:var(--warn);border-color:transparent}
 .callrow{display:flex;gap:8px;flex-wrap:wrap}
-.callrow a{flex:1 1 auto;min-width:110px;text-align:center;text-decoration:none;font-weight:600;font-size:14px;border:1px solid var(--line);border-radius:8px;padding:9px;color:var(--ink)}
+.callrow a{flex:1 1 auto;min-width:104px;text-align:center;text-decoration:none;font-weight:700;font-size:15px;border:1px solid var(--line);border-radius:10px;padding:14px 10px;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:7px}
 .callrow a:hover{border-color:var(--accent);color:var(--accent)}
+.callrow a.haupt{background:var(--accent);border-color:var(--accent);color:#fff}
+.callrow a.haupt:hover{color:#fff;filter:brightness(1.06)}
+/* Werte in der Uebersicht, die man antippen kann */
+.tipp{color:var(--accent-ink);text-decoration:none;font-weight:600;border-bottom:1px dashed var(--accent);}
+.tipp:hover{border-bottom-style:solid}
 .leistungen{display:flex;flex-direction:column;gap:6px}
 .leistungen label{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:14px}
 .leistungen label:hover{border-color:var(--accent)}
@@ -278,6 +319,9 @@ main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding-inline:16px;paddin
 .check input:checked ~ span b{color:var(--accent)}
 .check input{width:auto;margin-top:2px;flex:0 0 auto}
 .slots{display:flex;flex-wrap:wrap;gap:6px}
+.schrittleiste{display:flex;gap:8px;margin-bottom:4px}
+.schrittleiste .sk{flex:1;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);border-top:3px solid var(--line);padding-top:7px}
+.schrittleiste .sk[aria-current="true"]{color:var(--accent-ink);border-top-color:var(--accent)}
 .hinweise{display:flex;flex-wrap:wrap;gap:6px}
 .marke{background:var(--accent-soft);color:var(--accent-ink);border-radius:6px;padding:4px 9px;font-size:12.5px;font-weight:600}
 .hinweise .chip{font-size:12.5px;padding:5px 10px}
@@ -417,12 +461,30 @@ main{padding-bottom:86px}
 }
 @media (max-width:899px){
   .week{display:none!important}
-  .weekbar .nav,.weekbar .range{display:none}
-  .weekbar{margin-bottom:10px}
-  .cal{--axis:46px}
+  .weekbar .range{display:none}
+  .weekbar{margin-bottom:10px;gap:8px}
+  .weekbar h2{order:2}
+  .weekbar .nav{order:1}
+  .weekbar .heutebtn{order:3;margin-left:auto}
+  .weekbar .modus{order:0;width:100%}
+  .weekbar .modus button{flex:1;padding:9px 0}
+  .weekbar .filters{order:4;width:100%}
+  .cal{--axis:44px}
   .calbody.tagbody{grid-template-columns:var(--axis) minmax(0,1fr)}
+  .cal.wochenmodus .calinner{min-width:640px}
+  .cal.wochenmodus .calhead .fahrt-tag{display:none}
+  .cal.wochenmodus .calhead .hc{padding:7px 6px;gap:4px}
+  .cal.wochenmodus .calbody{overflow:visible}
+  .cal.wochenmodus .axis,
+  .cal.wochenmodus .calhead .hc:first-child{position:sticky;left:0;z-index:6;background:var(--surface)}
+  .cal.wochenmodus .calhead .hc:first-child{background:var(--surface-2)}
+  .cal.wochenmodus .axis{box-shadow:1px 0 0 var(--line)}
+  .montag{min-height:62px;padding:3px 2px 4px}
+  .montag .mzahl{font-size:11.5px;min-width:19px}
+  .monkopf div{font-size:10px;padding:5px 2px}
 }
-@media (min-width:900px){ .week{display:none!important} .tagkopf{display:none} }
+@media (min-width:900px){ .week{display:none!important} }
+.tagkopf{display:none}
 @media (max-width:900px){
   .week{grid-template-columns:1fr;gap:8px}
   .day{min-height:0}
@@ -461,14 +523,20 @@ main{padding-bottom:86px}
     <section id="view-week" hidden>
       <div class="banner" id="pushBanner">
         <span>📲</span>
-        <div><b>Prototyp.</b> Änderungen erscheinen sofort bei allen im Kalender, die Glocke zählt sie. Push aufs gesperrte Handy kommt im nächsten Schritt über den gekoppelten Google-Kalender.</div>
+        <div id="pushBannerText"></div>
       </div>
       <div class="weekbar">
+        <div class="modus" id="modusBar">
+          <button data-m="tag" aria-pressed="false">Tag</button>
+          <button data-m="woche" aria-pressed="false">Woche</button>
+          <button data-m="monat" aria-pressed="false">Monat</button>
+        </div>
         <div class="nav">
-          <button id="prevW" title="Woche zurück">‹</button>
-          <button id="nextW" title="Woche vor">›</button>
+          <button id="prevW" title="zurück">‹</button>
+          <button id="nextW" title="vor">›</button>
         </div>
         <h2 id="weekTitle">Woche</h2>
+        <button class="heutebtn" id="heuteBtn">Heute</button>
         <span class="startort" id="weekStart"></span>
         <span class="range mono" id="weekRange"></span>
         <div class="spacer"></div>
@@ -529,6 +597,8 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
+// Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
+var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 var sb = (window.supabase && window.supabase.createClient)
   ? window.supabase.createClient(SB_URL, SB_KEY, { auth:{ persistSession:true, autoRefreshToken:true } })
   : null;
@@ -595,11 +665,26 @@ function einfachHash(t){
   for(var i=0;i<t.length;i++){ h=((h<<5)+h+t.charCodeAt(i))|0; }
   return "e"+(h>>>0).toString(16);
 }
-function benutzerNorm(v){ return String(v||"").trim().toLowerCase(); }
+function benutzerNorm(v){
+  var t=String(v||"").trim().toLowerCase();
+  t=t.replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss");
+  t=t.replace(/[\s]+/g,".");          // Leerzeichen werden zum Punkt
+  t=t.replace(/[^a-z0-9._-]/g,"");     // alles andere faellt weg
+  t=t.replace(/^[._-]+|[._-]+$/g,"");
+  return t;
+}
+function meldung(e){
+  var m=(e&&e.message)||"";
+  if(/validate email address|invalid format/i.test(m)) return "Der Benutzername darf nur Buchstaben, Zahlen, Punkt, Minus und Unterstrich enthalten.";
+  if(/already registered|User already/i.test(m)) return "Diesen Benutzernamen gibt es schon. Nimm einen anderen.";
+  if(/Password should be/i.test(m)) return "Das Passwort braucht mindestens sechs Zeichen.";
+  return m||"Anlegen hat nicht geklappt.";
+}
 
 /* ---------------- state ---------------- */
 var S = {
   me:null, view:"home", weekStart:mondayOf(new Date()), tag:ymd(new Date()),
+  kalModus:null,
   appts:[], team:[], activity:[], sperr:[], filterCloser:"alle",
   lastSeen:Number(LS.get("sb_lastSeen")||0),
   ready:false, offline:false, firstFeed:true, neuerZugang:null, adminKal:null, teamSig:""
@@ -827,6 +912,77 @@ function logEvent(kind,text,apptId,schluessel){
     apptId:apptId||"",kalender:meinCloser()||""}).catch(function(){});
 }
 
+/* ---------------- Push aufs Handy ---------------- */
+var PUSH = {
+  sw:null,
+  moeglich:("serviceWorker" in navigator && "PushManager" in window && "Notification" in window),
+  status:function(){
+    if(!this.moeglich) return "geht nicht";
+    if(!istHomescreen() && istApple()) return "homescreen";
+    return Notification.permission;      // default, granted, denied
+  },
+  start:function(){
+    if(!this.moeglich) return Promise.resolve(null);
+    var self=this;
+    return navigator.serviceWorker.register("sw.js").then(function(reg){
+      self.sw=reg;
+      navigator.serviceWorker.addEventListener("message",function(e){
+        if(e.data&&e.data.art==="termin-oeffnen"&&e.data.id) setTimeout(function(){ openAppt(e.data.id); },300);
+      });
+      return reg;
+    }).catch(function(){ return null; });
+  },
+  anmelden:function(){
+    var self=this;
+    if(!this.moeglich) return Promise.reject(new Error("Dieses Gerät kann keine Mitteilungen."));
+    return Notification.requestPermission().then(function(p){
+      if(p!=="granted") throw new Error("Du hast Mitteilungen abgelehnt. Das änderst du in den Einstellungen des Handys.");
+      return self.sw || self.start();
+    }).then(function(reg){
+      if(!reg) throw new Error("Der Hintergrunddienst startet nicht.");
+      return reg.pushManager.getSubscription().then(function(vorhanden){
+        if(vorhanden) return vorhanden;
+        if(!PUSH_KEY) throw new Error("Es ist noch kein Schlüssel hinterlegt. Siehe Anleitung push-einrichten.md.");
+        return reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64ZuBytes(PUSH_KEY) });
+      });
+    }).then(function(ab){
+      var j=ab.toJSON();
+      return sb.from("push_geraete").upsert({
+        person_id:S.me.id,
+        kalender_id:S.me.kalender_id||null,
+        endpunkt:j.endpoint,
+        p256dh:j.keys&&j.keys.p256dh,
+        auth:j.keys&&j.keys.auth,
+        geraet:navigator.userAgent.slice(0,180)
+      },{ onConflict:"endpunkt" }).then(function(r){
+        if(r.error) throw r.error;
+        return true;
+      });
+    });
+  },
+  abmelden:function(){
+    if(!this.sw) return Promise.resolve();
+    return this.sw.pushManager.getSubscription().then(function(ab){
+      if(!ab) return;
+      var e=ab.endpoint;
+      return ab.unsubscribe().then(function(){
+        return sb.from("push_geraete").delete().eq("endpunkt",e);
+      });
+    });
+  }
+};
+function istApple(){ return /iPad|iPhone|iPod/.test(navigator.userAgent||""); }
+function istHomescreen(){
+  return (window.navigator.standalone===true) ||
+         (window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches);
+}
+function b64ZuBytes(b64){
+  var rein=(b64+"=".repeat((4-b64.length%4)%4)).replace(/-/g,"+").replace(/_/g,"/");
+  var roh=window.atob(rein), out=new Uint8Array(roh.length);
+  for(var i=0;i<roh.length;i++) out[i]=roh.charCodeAt(i);
+  return out;
+}
+
 function setDiag(t,bad){
   var g=$("gateHint"); if(g) g.textContent=t;
   var b=$("pushBanner");
@@ -892,16 +1048,23 @@ function tagesAnfahrt(a){
   var m=anfahrten(tag);
   return { min:m[a.id], von:m[a.id+"_von"] };
 }
+function pgText(a){
+  var g=a&&a.pflegegrad;
+  if(!g) return "PG ?";
+  if(g==="antrag") return "Erstantrag";
+  if(g==="kein") return "kein PG";
+  return "PG "+g;
+}
 function nebenInfo(a,anfahrtMin){
   var teile=[];
-  if(a.pflegegrad) teile.push("PG "+a.pflegegrad);
+  if(a.pflegegrad) teile.push(pgText(a));
   var f=(anfahrtMin===undefined)?abBasis(a):anfahrtMin;
   if(f!=null) teile.push("🚗 "+minText(f));
   return teile.join(" · ");
 }
 function kurzOrt(a,anfahrtMin){
   var teile=[];
-  if(a.pflegegrad) teile.push("PG "+a.pflegegrad);
+  if(a.pflegegrad) teile.push(pgText(a));
   if(a.ort) teile.push(a.ort);
   var f=(anfahrtMin===undefined)?abBasis(a):anfahrtMin;
   if(f!=null) teile.push("🚗 "+minText(f));
@@ -999,7 +1162,7 @@ function fahrtPruefung(datum,closer,vonMin,dauer,plzNeu,ortNeu,ausserId){
 }
 
 /* ---------------- boot ---------------- */
-function start(){ renderGate(); wire(); claudeDb(); }
+function start(){ renderGate(); wire(); claudeDb(); PUSH.start(); }
 
 function claudeDb(){
   if(!sb){ setDiag("Supabase konnte nicht geladen werden. Internetverbindung prüfen.",true); return; }
@@ -1075,6 +1238,14 @@ function connect(){
 
 }
 
+function terminAusLink(){
+  var m=/#termin=([A-Za-z0-9-]+)/.exec(location.hash||"");
+  if(!m) return;
+  history.replaceState(null,"",location.pathname+location.search);
+  var id=m[1];
+  setTimeout(function(){ if(S.appts.filter(function(a){ return a.id===id; })[0]) openAppt(id); },900);
+}
+
 function enterApp(){
   $("gate").hidden=true; $("app").hidden=false; $("untenleiste").hidden=false;
   S.view="home";
@@ -1085,12 +1256,33 @@ function enterApp(){
   var c=meinCloser();
   if(istAdmin()&&!c){ $("kopfKal").hidden=false; $("kopfKalName").textContent="Alle Kalender"; $("kopfKalAv").textContent="AL"; }
   else { $("kopfKal").hidden=!c; if(c){ $("kopfKalName").textContent=c; $("kopfKalAv").textContent=initials(c); } }
-  renderFilter(); render(); renderBell();
+  renderFilter(); render(); renderBell(); renderBanner(); terminAusLink();
 }
 
 function renderBanner(){
   var b=$("pushBanner"); if(!b) return;
+  var t=$("pushBannerText");
+  if(t&&!S.offline){
+    var st=PUSH.status();
+    if(st==="granted"||st==="geht nicht"||S.bannerZu){ b.hidden=true; }
+    else {
+      b.hidden=false;
+      t.innerHTML = (st==="homescreen")
+        ? '<b>Als App speichern.</b> Unten auf Teilen tippen, dann <b>Zum Home-Bildschirm</b>. Erst dann kann dich das Handy bei neuen Terminen benachrichtigen.'
+        : '<b>Mitteilungen sind aus.</b> Damit du neue Termine sofort mitbekommst, unter <b>Zugänge</b> die Mitteilungen einschalten. '+
+          '<button class="btn ghost" id="pushJetzt" style="padding:2px 8px">Jetzt einschalten</button>';
+      var pj=$("pushJetzt");
+      if(pj) pj.onclick=function(){ openWho(); setTimeout(function(){ var k=$("pushBtn"); if(k) k.click(); },250); };
+      if(!b.querySelector(".bannerZu")){
+        var zu=document.createElement("button");
+        zu.className="btn ghost bannerZu"; zu.textContent="Später"; zu.style.cssText="margin-left:auto;padding:2px 8px";
+        zu.onclick=function(){ S.bannerZu=true; b.hidden=true; };
+        b.appendChild(zu);
+      }
+    }
+  }
   if(S.offline){
+    b.hidden=false;
     b.innerHTML='<span>💾</span><div><b>Lokaler Modus.</b> Diese Ansicht hat keine Verbindung zur gemeinsamen Datenbank. '+
       'Was du hier einträgst, bleibt auf diesem Gerät und ist nach dem Neuladen weg.</div>';
   }
@@ -1333,14 +1525,14 @@ function renderHeute(){
           '<span class="pill '+esc(a.status)+'">'+esc(st.label)+'</span>'+
         '</div>'+
         '<button class="tagname" data-id="'+esc(a.id)+'">'+esc(name(a))+'</button>'+
-        '<div class="tagzeile">PG '+esc(a.pflegegrad||"?")+' · '+esc(adr||"keine Adresse")+
+        '<div class="tagzeile">'+esc(pgText(a))+' · '+esc(adr||"keine Adresse")+
           (anf[a.id]!=null?' · 🚗 '+esc(minText(anf[a.id]))+' Anfahrt':'')+'</div>'+
         (a.hinweise&&a.hinweise.length?'<div class="hinweise" style="margin-top:2px">'+
           a.hinweise.slice(0,4).map(function(h){ return '<span class="marke">'+esc(h)+'</span>'; }).join("")+'</div>':'')+
         '<div class="callrow" style="margin-top:9px">'+
-          (tel?'<a href="tel:'+esc(tel)+'">Anrufen</a>':'')+
-          (adr?'<a href="https://maps.google.com/?q='+encodeURIComponent(adr)+'" target="_blank" rel="noopener">Navigation</a>':'')+
-          '<a href="#" data-oeffnen="'+esc(a.id)+'">Ergebnis setzen</a>'+
+          (adr?'<a class="haupt" href="'+esc(routeLink(adr))+'" target="_blank" rel="noopener">🚗 Losfahren</a>':'')+
+          (tel?'<a href="tel:'+esc(tel)+'">📞 Anrufen</a>':'')+
+          '<a href="#" data-oeffnen="'+esc(a.id)+'">Ergebnis</a>'+
         '</div>'+
       '</div>';
     }).join("")+'</div>';
@@ -1352,13 +1544,50 @@ function renderHeute(){
   });
 }
 
+/* Tag, Woche oder Monat. Die Wahl bleibt auf dem Geraet gespeichert. */
+function modus(){
+  if(!S.kalModus){
+    var g=null;
+    try{ g=localStorage.getItem("sb_kalmodus"); }catch(e){}
+    S.kalModus = (g==="tag"||g==="woche"||g==="monat") ? g
+      : (window.matchMedia("(max-width:899px)").matches ? "tag" : "woche");
+  }
+  return S.kalModus;
+}
+function setModus(m){
+  S.kalModus=m;
+  try{ localStorage.setItem("sb_kalmodus",m); }catch(e){}
+  render();
+}
+function monatsAnker(){ var d=parseYmd(S.tag); return new Date(d.getFullYear(),d.getMonth(),1); }
+var MONATE=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+
 function renderWeek(){
-  var start=S.weekStart;
-  var cName=meinCloser();
-  $("weekTitle").textContent=cName?("ab "+startPunkt(cName).text):(istAdmin()?"Alle Kalender":"Kalender");
+  var start=S.weekStart, m=modus();
+  var heuteYmd=ymd(new Date());
+  // Umschalter und Beschriftung der Leiste
+  Array.prototype.forEach.call($("modusBar").querySelectorAll("button"),function(b){
+    b.setAttribute("aria-pressed",String(b.dataset.m===m));
+  });
+  var tagD=parseYmd(S.tag);
+  var eng=window.matchMedia("(max-width:899px)").matches;
+  if(m==="tag"){
+    $("weekTitle").textContent=(eng?DOW_S[(tagD.getDay()+6)%7]:DOW[(tagD.getDay()+6)%7])+", "+deDate(tagD);
+    $("weekRange").textContent="";
+  } else if(m==="monat"){
+    var ma=monatsAnker();
+    $("weekTitle").textContent=MONATE[ma.getMonth()]+" "+ma.getFullYear();
+    $("weekRange").textContent="";
+  } else {
+    $("weekTitle").textContent="KW "+isoWeek(start);
+    $("weekRange").textContent=deDate(start)+" bis "+deDate(addDays(start,5));
+  }
   $("weekStart").textContent="";
-  $("weekRange").textContent="KW "+isoWeek(start)+" · "+deDate(start)+" bis "+deDate(addDays(start,5));
-  var today=ymd(new Date()), list=visible(), html="";
+  var amHeute = (m==="tag") ? (S.tag===heuteYmd)
+    : (m==="woche") ? (ymd(S.weekStart)<=heuteYmd && heuteYmd<=ymd(addDays(S.weekStart,6)))
+    : (monatsAnker().getMonth()===new Date().getMonth() && monatsAnker().getFullYear()===new Date().getFullYear());
+  $("heuteBtn").hidden=amHeute;
+  var today=heuteYmd, list=visible(), html="";
   for(var i=0;i<6;i++){
     var d=addDays(start,i), key=ymd(d);
     var day=list.filter(function(a){ return a.datum===key; });
@@ -1368,8 +1597,6 @@ function renderWeek(){
     '</div>';
   }
   $("weekGrid").innerHTML=html;
-  var schmal=window.matchMedia("(max-width:899px)").matches;
-
   var leer=!list.length;
   var hinweis=$("leerHinweis");
   if(!hinweis){
@@ -1386,9 +1613,9 @@ function renderWeek(){
     hinweis.hidden=false;
     hinweis.innerHTML='<span>📭</span><div>'+
       (gefiltert
-        ? '<b>'+esc(wer)+'</b> hat in dieser Woche keine Termine. '+
+        ? '<b>'+esc(wer)+'</b> hat hier keine Termine. '+
           '<button class="btn ghost" id="alleZeigen" style="padding:2px 8px">Alle anzeigen</button>'
-        : '<b>Diese Woche ist noch frei.</b> Über <b>Termin setzen</b> trägst du den ersten ein.')+
+        : '<b>Noch keine Termine.</b> Über <b>Termin setzen</b> trägst du den ersten ein.')+
       '</div>';
     var az=$("alleZeigen");
     if(az) az.onclick=function(){ S.filterCloser="alle"; renderFilter(); render(); };
@@ -1396,7 +1623,11 @@ function renderWeek(){
   Array.prototype.forEach.call($("weekGrid").querySelectorAll(".card"),function(b){
     b.onclick=function(){ openAppt(b.dataset.id); };
   });
-  if(schmal) renderTagRaster(); else renderRaster(start,list,today);
+  var cal=$("calGrid");
+  if(cal) cal.className="cal"+(m==="woche"?" wochenmodus":"");
+  if(m==="tag") renderTagRaster();
+  else if(m==="monat") renderMonat(list,today);
+  else renderRaster(start,list,today);
 }
 
 /* Zeitraster: Achse links, Termine an ihrer Uhrzeit */
@@ -1452,6 +1683,53 @@ function renderTagRaster(){
   $("tagVor").onclick=function(){ S.tag=ymd(addDays(parseYmd(S.tag),1)); S.weekStart=mondayOf(parseYmd(S.tag)); render(); };
   Array.prototype.forEach.call(box.querySelectorAll(".tblock"),function(b){
     b.onclick=function(){ openAppt(b.dataset.id); };
+  });
+}
+
+/* Monat: Gitter mit allen Tagen, Tippen springt in den Tag */
+function renderMonat(list,today){
+  var box=$("calGrid"); if(!box) return;
+  var erster=monatsAnker(), monat=erster.getMonth();
+  var start=mondayOf(erster);
+  var breit=window.matchMedia("(min-width:900px)").matches;
+  var maxZeilen=breit?3:0;               // auf dem Handy nur Punkte, sonst Zeilen
+  var cName=meinCloser();
+
+  var kopf='<div class="monkopf">'+["Mo","Di","Mi","Do","Fr","Sa","So"].map(function(t){
+    return '<div>'+t+'</div>'; }).join("")+'</div>';
+
+  var zellen="", d=new Date(start);
+  for(var i=0;i<42;i++){
+    var key=ymd(d);
+    var tagL=list.filter(function(a){ return a.datum===key&&a.status!=="abgesagt"; })
+                 .sort(function(a,b){ return startMs(a)-startMs(b); });
+    var sp=cName?gesperrt(key,cName):null;
+    var inhalt="";
+    if(maxZeilen){
+      inhalt=tagL.slice(0,maxZeilen).map(function(a){
+        var st=STATUS[a.status]||STATUS.geplant;
+        return '<span class="mzeile" style="--st:'+st.color+'"><b>'+esc(a.zeit)+'</b><span>'+esc(name(a))+'</span></span>';
+      }).join("");
+      if(tagL.length>maxZeilen) inhalt+='<span class="mmehr">+'+(tagL.length-maxZeilen)+' weitere</span>';
+    } else if(tagL.length){
+      inhalt='<span class="mpunkte">'+tagL.slice(0,6).map(function(a){
+        var st=STATUS[a.status]||STATUS.geplant;
+        return '<i style="--st:'+st.color+'"></i>'; }).join("")+'</span>';
+    }
+    zellen+='<button class="montag'+(d.getMonth()!==monat?" fremd":"")+(key===today?" heute":"")+(sp?" gesperrt":"")+'" '+
+      'data-tag="'+key+'"'+(sp?' title="'+esc(sp.grund||"nicht da")+'"':'')+'>'+
+      '<span class="mzahl">'+d.getDate()+'</span>'+inhalt+'</button>';
+    d=addDays(d,1);
+    if(i>=34&&d.getMonth()!==monat&&(i+1)%7===0) break;   // letzte leere Zeile weglassen
+  }
+
+  box.innerHTML=kopf+'<div class="mongrid">'+zellen+'</div>';
+  Array.prototype.forEach.call(box.querySelectorAll(".montag"),function(b){
+    b.onclick=function(){
+      S.tag=b.dataset.tag;
+      S.weekStart=mondayOf(parseYmd(S.tag));
+      setModus("tag");
+    };
   });
 }
 
@@ -1555,7 +1833,8 @@ function renderRaster(start,list,today){
       (spK?'<div class="sperrband"><span>'+esc(spK.grund||"nicht da")+'</span></div>':'')+'</div>';
   }
 
-  box.innerHTML=kopf+'<div class="calbody">'+achse+spalten+'</div>';
+  box.innerHTML='<div class="calscroll"><div class="calinner">'+kopf+
+    '<div class="calbody">'+achse+spalten+'</div></div></div>';
   Array.prototype.forEach.call(box.querySelectorAll(".tblock"),function(b){
     b.onclick=function(){ openAppt(b.dataset.id); };
   });
@@ -1570,7 +1849,7 @@ function cardHtml(a,anfahrtMin){
     '<span class="t mono">'+esc(a.zeit)+' bis '+esc(endeVon(a))+' · '+esc(a.closer)+'</span>'+
     '<span class="k">'+esc(name(a))+'</span>'+
     (a.ort?'<span class="kort">'+esc(a.ort)+'</span>':'')+
-    '<span class="m"><span class="pg">PG '+esc(a.pflegegrad||"?")+'</span>'+(anfahrtMin!=null?'🚗 '+esc(minText(anfahrtMin))+' Anfahrt · ':'')+'von '+esc(a.setter)+'</span>'+
+    '<span class="m"><span class="pg">'+esc(pgText(a))+'</span>'+(anfahrtMin!=null?'🚗 '+esc(minText(anfahrtMin))+' Anfahrt · ':'')+'von '+esc(a.setter)+'</span>'+
     '<span class="pill '+esc(a.status)+'">'+esc(st.label)+'</span>'+
   '</button>';
 }
@@ -1697,6 +1976,14 @@ function zugEnde(){
 }
 
 /* ---------------- Termin-Detail ---------------- */
+/* Route ab dem aktuellen Standort. Ohne Startpunkt setzt die Karte "Mein Standort" ein. */
+function routeLink(adr){
+  var ziel=encodeURIComponent(adr);
+  var iOS=/iPad|iPhone|iPod/.test(navigator.userAgent||"");
+  return iOS ? ("https://maps.apple.com/?daddr="+ziel+"&dirflg=d")
+             : ("https://www.google.com/maps/dir/?api=1&destination="+ziel+"&travelmode=driving");
+}
+
 function openAppt(id){
   var a=S.appts.filter(function(x){ return x.id===id; })[0]; if(!a) return;
   var d=parseYmd(a.datum);
@@ -1706,12 +1993,13 @@ function openAppt(id){
     '<div class="kv">'+
       '<dt>Wann</dt><dd><b>'+DOW[(d.getDay()+6)%7]+', '+deDate(d)+'</b><br><span class="mono">'+esc(a.zeit)+' Uhr · '+esc(a.dauer||60)+' Min</span></dd>'+
       '<dt>Kunde</dt><dd><b>'+esc(name(a))+'</b></dd>'+
-      '<dt>Telefon</dt><dd class="mono">'+esc(a.telefon||"—")+'</dd>'+
-      '<dt>Adresse</dt><dd>'+esc(adr||"—")+(function(){
+      '<dt>Telefon</dt><dd class="mono">'+(tel?'<a class="tipp" href="tel:'+esc(tel)+'">'+esc(a.telefon)+'</a>':"—")+'</dd>'+
+      '<dt>Adresse</dt><dd>'+(adr?'<a class="tipp" href="'+esc(routeLink(adr))+'" target="_blank" rel="noopener">'+esc(adr)+'</a>':"—")+(function(){
         var an=tagesAnfahrt(a);
         return an.min!=null?'<br><span class="hint">Anfahrt rund '+esc(minText(an.min))+' von '+esc(an.von)+'</span>':'';
       })()+'</dd>'+
-      '<dt>Pflegegrad</dt><dd><span class="pg">PG '+esc(a.pflegegrad||"?")+'</span></dd>'+
+      '<dt>Pflegegrad</dt><dd><span class="pg">'+esc(pgText(a))+'</span>'+
+        (a.pflegegrad==="antrag"?'<br><span class="hint">Bescheid steht noch aus, Einbau erst danach abrechnen.</span>':'')+'</dd>'+
       '<dt>Wohnung</dt><dd>'+(a.wohnform==="miete"?"Miete, Vermieterzustimmung nötig":"Eigentum")+'</dd>'+
       '<dt>Entscheidung</dt><dd>'+(a.entscheider?"entscheidet allein":"Angehörige entscheiden mit, siehe Notiz")+'</dd>'+
       '<dt>Papiere</dt><dd>'+(a.papiere?"besprochen, liegen bereit":"noch nicht besprochen")+'</dd>'+
@@ -1719,8 +2007,8 @@ function openAppt(id){
       '<dt>Closer</dt><dd>'+esc(a.closer)+'</dd>'+
     '</div>'+
     '<div class="callrow">'+
-      (tel?'<a href="tel:'+esc(tel)+'">Anrufen</a><a href="sms:'+esc(tel)+'">SMS</a>':'')+
-      (adr?'<a href="https://maps.google.com/?q='+encodeURIComponent(adr)+'" target="_blank" rel="noopener">Route</a>':'')+
+      (adr?'<a class="haupt" href="'+esc(routeLink(adr))+'" target="_blank" rel="noopener">🚗 Losfahren</a>':'')+
+      (tel?'<a href="tel:'+esc(tel)+'">📞 Anrufen</a><a href="sms:'+esc(tel)+'">✉️ SMS</a>':'')+
     '</div>'+
     ((a.hinweise&&a.hinweise.length)?'<div><div class="sec-label" style="margin-bottom:6px">Aus dem Telefonat</div>'+
       '<div class="hinweise">'+a.hinweise.map(function(h){ return '<span class="marke">'+esc(h)+'</span>'; }).join("")+'</div></div>':'')+
@@ -1813,6 +2101,19 @@ function openForm(edit){
   var sel={ datum:a.datum||ersterFreierTag(), zeit:a.zeit||"", closer:meinC, dauer:(+a.dauer||RULES.slotMin) };
 
   var body=
+    '<div class="schrittleiste"><span class="sk" id="sk1">1 Zum Termin</span><span class="sk" id="sk2">2 Fürs Gespräch</span></div>'+
+    '<div id="schritt1">'+
+    '<div class="sec-label" style="margin-bottom:2px">Wer und wo?</div>'+
+    '<div class="two">'+
+      '<div class="field"><label for="f_vor">Vorname</label><input id="f_vor" autocomplete="off" value="'+esc(a.vorname||"")+'"></div>'+
+      '<div class="field"><label for="f_nach">Nachname</label><input id="f_nach" autocomplete="off" value="'+esc(a.nachname||"")+'"></div>'+
+    '</div>'+
+    '<div class="field"><label for="f_tel">Telefon für den Rückruf</label><input id="f_tel" class="mono" inputmode="tel" value="'+esc(a.telefon||"")+'" placeholder="0511 2234455">'+
+      '<span class="hint" id="telHint"></span></div>'+
+    '<div class="field"><label for="f_adr">Adresse</label>'+
+      '<input id="f_adr" autocomplete="off" placeholder="Deisterstr 7, 30890 Barsinghausen" value="'+esc(adresseEineZeile(a))+'">'+
+      '<span class="hint" id="plzHint"></span></div>'+
+    '<hr class="sep">'+
     '<div class="sec-label" style="margin-bottom:2px">Wann passt es dem Kunden?</div>'+
     '<div class="two">'+
       '<div class="field"><label for="f_datum">Datum</label><input type="date" id="f_datum" class="mono" value="'+esc(sel.datum)+'"></div>'+
@@ -1828,19 +2129,13 @@ function openForm(edit){
     '</div>'+
     '<div class="field"><label>Freie Zeiten an dem Tag</label><div class="slots" id="slotBox"></div><p class="hint" id="slotHint"></p></div>'+
     '<div id="konfliktBox"></div>'+
-    '<hr class="sep">'+
-    '<div class="two">'+
-      '<div class="field"><label for="f_vor">Vorname</label><input id="f_vor" autocomplete="off" value="'+esc(a.vorname||"")+'"></div>'+
-      '<div class="field"><label for="f_nach">Nachname</label><input id="f_nach" autocomplete="off" value="'+esc(a.nachname||"")+'"></div>'+
     '</div>'+
-    '<div class="field"><label for="f_tel">Telefon für den Rückruf</label><input id="f_tel" class="mono" inputmode="tel" value="'+esc(a.telefon||"")+'" placeholder="0511 2234455">'+
-      '<span class="hint" id="telHint"></span></div>'+
-    '<div class="field"><label for="f_adr">Adresse</label>'+
-      '<input id="f_adr" autocomplete="off" placeholder="Deisterstr 7, 30890 Barsinghausen" value="'+esc(adresseEineZeile(a))+'">'+
-      '<span class="hint" id="plzHint"></span></div>'+
+    '<div id="schritt2" hidden>'+
     '<div class="two">'+
       '<div class="field"><label for="f_pg">Pflegegrad</label><select id="f_pg">'+
-        ['<option value="">bitte fragen</option>','<option value="kein">keiner</option>']
+        ['<option value="">bitte fragen</option>',
+         '<option value="antrag"'+(String(a.pflegegrad)==="antrag"?" selected":"")+'>Erstantrag läuft</option>',
+         '<option value="kein">keiner, will auch keinen stellen</option>']
           .concat(["1","2","3","4","5"].map(function(g){
             return '<option value="'+g+'"'+(String(a.pflegegrad)===g?" selected":"")+'>Pflegegrad '+g+'</option>';
           })).join("")+'</select></div>'+
@@ -1863,13 +2158,29 @@ function openForm(edit){
       '<span><b>Entscheidet allein</b><br>'+
       'Haken setzen, wenn die Person selbst unterschreiben kann. Nicht ankreuzen, wenn Ehepartner, Kinder oder ein Betreuer mitreden. '+
       'Dann gehören deren Name und Nummer in die Notiz und sie müssen zum Termin dazu.</span></label>'+
-    '<label class="check"><input type="checkbox" id="f_pap"'+(a.papiere?" checked":"")+'>'+
+    '<div id="papierWrap"><label class="check"><input type="checkbox" id="f_pap"'+(a.papiere?" checked":"")+'>'+
       '<span><b>Papiere angekündigt</b><br>'+
-      'Haken setzen, wenn du am Telefon gesagt hast, dass zum Termin bereitliegen sollen: letzter Bericht des Medizinischen Dienstes, Arztberichte, Medikationsplan.</span></label>'+
+      'Haken setzen, wenn du am Telefon gesagt hast, dass zum Termin bereitliegen sollen: letzter Bericht des Medizinischen Dienstes, Arztberichte, Medikationsplan.</span></label></div>'+
+    '</div>'+
     '<p class="err" id="formErr" hidden></p>';
   overlay(edit?"Termin verschieben":"Neuer Termin",body,
-    '<button class="btn primary" id="saveBtn">'+(edit?"Termin verschieben":"Termin eintragen")+'</button>'+
+    '<button class="btn ghost" id="zurueckBtn" hidden>Zurück</button>'+
+    '<button class="btn primary" id="weiterBtn">Weiter</button>'+
+    '<button class="btn primary" id="saveBtn" hidden>'+(edit?"Termin verschieben":"Termin eintragen")+'</button>'+
     '<button class="btn ghost" id="abortBtn">Abbrechen</button>',"form");
+
+  var schritt=1;
+  function zeigeSchritt(n){
+    schritt=n;
+    $("schritt1").hidden=(n!==1);
+    $("schritt2").hidden=(n!==2);
+    $("weiterBtn").hidden=(n!==1);
+    $("saveBtn").hidden=(n!==2);
+    $("zurueckBtn").hidden=(n!==2);
+    $("sk1").setAttribute("aria-current",String(n===1));
+    $("sk2").setAttribute("aria-current",String(n===2));
+    var p=document.querySelector(".panel-body"); if(p) p.scrollTop=0;
+  }
 
   function adrJetzt(){ return adresseZerlegen($("f_adr").value); }
   function plzCheck(){
@@ -1888,6 +2199,14 @@ function openForm(edit){
 
   function quali(){
     var pg=$("f_pg").value, wohn=$("f_wohn").value, box=$("qualiBox"), out="";
+    var pw=$("papierWrap"); if(pw) pw.hidden=(pg==="antrag");
+    if(pg==="antrag"){
+      out='<div class="warnbox"><b>Erstantrag läuft</b><br>Termin geht in Ordnung. Der Bescheid dauert rund fünf Wochen, '+
+        'den Bericht des Medizinischen Dienstes gibt es noch nicht, danach also nicht fragen. '+
+        'Der Einbau wird erst nach dem Bescheid abgerechnet.</div>';
+      box.innerHTML=out;
+      return !(wohn==="heim");
+    }
     if(pg==="kein"){
       out='<div class="stop"><b>Kein Termin, Wiedervorlage</b>Ohne Pflegegrad gibt es keine Kostenübernahme nach § 40 SGB XI. '+
         'Erst Pflegegrad beantragen lassen, bis zum Bescheid vergehen rund fünf Wochen. Danach zurückrufen, solche Leads sind oft langjährige Kunden.</div>';
@@ -1999,11 +2318,11 @@ function openForm(edit){
   }
   $("f_tel").oninput=telCheck;
 
-  quali(); plzCheck(); telCheck(); drawZeiten();
+  quali(); plzCheck(); telCheck(); drawZeiten(); zeigeSchritt(1);
 
   // Enter springt weiter, im letzten Feld wird gespeichert
   (function(){
-    var reihe=["f_datum","f_zeit","f_dauer","f_vor","f_nach","f_tel","f_adr","f_pg","f_wohn","f_notiz"];
+    var reihe=["f_vor","f_nach","f_tel","f_adr","f_datum","f_zeit","f_dauer","f_pg","f_wohn","f_notiz"];
     reihe.forEach(function(id,i){
       var el=$(id); if(!el) return;
       el.addEventListener("keydown",function(e){
@@ -2014,26 +2333,45 @@ function openForm(edit){
           var n=$(reihe[j]);
           if(n&&!n.disabled){ n.focus(); if(n.select) try{ n.select(); }catch(x){} return; }
         }
-        $("saveBtn").click();
+        (schritt===1?$("weiterBtn"):$("saveBtn")).click();
       });
     });
   })();
 
   $("abortBtn").onclick=closeOverlay;
+
+  function fehler(msg,focus){
+    var err=$("formErr");
+    err.hidden=false; err.textContent=msg;
+    if(focus){ var f=$(focus); if(f&&!f.closest("[hidden]")) f.focus(); }
+    return false;
+  }
+  function schritt1Ok(){
+    var err=$("formErr"); err.hidden=true;
+    var vor=$("f_vor").value.trim(), nach=$("f_nach").value.trim();
+    if(!vor&&!nach) return fehler("Vorname und Nachname fehlen.","f_vor");
+    if(!$("f_tel").value.trim()) return fehler("Ohne Telefonnummer kann der Closer nicht zurückrufen.","f_tel");
+    var adr=adrJetzt();
+    if(!adr.strasse||(!adr.ort&&!adr.plz)) return fehler("Adresse fehlt, der Closer fährt hin.","f_adr");
+    var sp=gesperrt(sel.datum,sel.closer);
+    if(sp) return fehler(sel.closer+" ist an dem Tag nicht da"+(sp.grund?" ("+sp.grund+")":"")+". Wähl einen anderen Tag.","f_datum");
+    drawZeiten();
+    if(!sel.zeit) return fehler("Trag eine Uhrzeit ein oder wähl einen Vorschlag.","f_zeit");
+    if(konflikt(sel.datum,sel.closer,zeitInMin(sel.zeit),sel.dauer))
+      return fehler("Zu der Zeit ist schon ein Termin. Wähl eine andere Uhrzeit.","f_zeit");
+    return true;
+  }
+  $("weiterBtn").onclick=function(){ if(schritt1Ok()) zeigeSchritt(2); };
+  $("zurueckBtn").onclick=function(){ $("formErr").hidden=true; zeigeSchritt(1); };
+
   $("saveBtn").onclick=function(){
     var err=$("formErr");
     function fail(msg,focus){ err.hidden=false; err.textContent=msg; if(focus) $(focus).focus(); }
-    var vor=$("f_vor").value.trim(), nach=$("f_nach").value.trim();
-    if(!vor&&!nach) return fail("Vorname und Nachname fehlen.","f_vor");
-    if(!$("f_tel").value.trim()) return fail("Ohne Telefonnummer kann der Closer nicht zurückrufen.","f_tel");
-    var adr=adrJetzt();
-    if(!adr.strasse||(!adr.ort&&!adr.plz)) return fail("Adresse fehlt, der Closer fährt hin.","f_adr");
+    if(!schritt1Ok()){ zeigeSchritt(1); return; }
+    var vor=$("f_vor").value.trim(), nach=$("f_nach").value.trim(), adr=adrJetzt();
     if(!$("f_pg").value) return fail("Pflegegrad fehlt. Frag danach, ohne ihn geht es nicht weiter.","f_pg");
-    var sp=gesperrt(sel.datum,sel.closer);
-    if(sp) return fail(sel.closer+" ist an dem Tag nicht da"+(sp.grund?" ("+sp.grund+")":"")+". Wähl einen anderen Tag.","f_datum");
     if(!quali()) return fail("Dieser Lead qualifiziert sich nicht für einen Termin, siehe Hinweis oben.","f_pg");
     drawZeiten();
-    if(!sel.zeit) return fail("Trag eine Uhrzeit ein oder wähl einen Vorschlag.","f_zeit");
     if(konflikt(sel.datum,sel.closer,zeitInMin(sel.zeit),sel.dauer))
       return fail("Die Zeit ist bei "+sel.closer+" schon belegt.","f_zeit");
     err.hidden=true;
@@ -2057,7 +2395,7 @@ function openForm(edit){
     upsertAppt(obj).then(function(){
       var wer=(vor+" "+nach).trim();
       if(wasMove) logEvent("verschoben",wer+" verschoben auf "+deDate(parseYmd(obj.datum))+" "+obj.zeit,obj.id,"verschoben");
-      else logEvent("neu","Neuer Termin: "+wer+" (PG "+obj.pflegegrad+") am "+deDate(parseYmd(obj.datum))+" um "+obj.zeit+" bei "+obj.closer,obj.id);
+      else logEvent("neu","Neuer Termin: "+wer+" ("+pgText(obj)+") am "+deDate(parseYmd(obj.datum))+" um "+obj.zeit+" bei "+obj.closer,obj.id);
       closeOverlay();
       S.weekStart=mondayOf(parseYmd(obj.datum));
       render();
@@ -2071,6 +2409,44 @@ function openForm(edit){
 function meineSetter(){
   if(!S.me||S.me.rolle!=="closer") return [];
   return S.team.filter(function(m){ return m.rolle==="setter"&&m.gehoertZu===S.me.name; });
+}
+
+function zeichnePush(){
+  var box=$("pushBox"); if(!box) return;
+  var st=PUSH.status();
+  if(st==="geht nicht"){
+    box.innerHTML='<p class="hint">Dieser Browser kann keine Mitteilungen. Nimm Safari auf dem iPhone oder Chrome auf Android.</p>';
+    return;
+  }
+  if(st==="homescreen"){
+    box.innerHTML='<div class="warnbox"><b>Erst zum Home-Bildschirm hinzufügen</b><br>'+
+      'Auf dem iPhone gehen Mitteilungen nur, wenn die Seite als App gespeichert ist. '+
+      'Unten auf das Teilen-Symbol tippen, dann <b>Zum Home-Bildschirm</b>. Danach die App von dort öffnen und hier wieder hereinschauen.</div>';
+    return;
+  }
+  if(st==="denied"){
+    box.innerHTML='<p class="hint">Mitteilungen sind für diese Seite gesperrt. Das lässt sich nur in den Einstellungen des Handys wieder erlauben.</p>';
+    return;
+  }
+  var an=(st==="granted");
+  box.innerHTML='<p class="hint" style="margin-bottom:8px">'+
+      (an?'Dieses Gerät bekommt Mitteilungen bei neuen Terminen, Änderungen und eine Erinnerung vor dem Termin.'
+        : 'Neuer Termin, Absage, Erinnerung vor dem Termin und morgens die Übersicht des Tages.')+'</p>'+
+    '<button class="btn '+(an?"":"primary")+'" id="pushBtn">'+(an?"Dieses Gerät abmelden":"Mitteilungen einschalten")+'</button>'+
+    '<p class="err" id="pushErr" hidden style="margin-top:8px"></p>';
+  $("pushBtn").onclick=function(){
+    var b=$("pushBtn"), e=$("pushErr");
+    e.hidden=true; b.disabled=true;
+    var p = an ? PUSH.abmelden() : PUSH.anmelden();
+    p.then(function(){
+      b.disabled=false;
+      toast(an?"Dieses Gerät bekommt keine Mitteilungen mehr.":"Mitteilungen sind an.");
+      zeichnePush(); renderBanner();
+    }).catch(function(err){
+      b.disabled=false; e.hidden=false;
+      e.textContent=(err&&err.message)||"Hat nicht geklappt.";
+    });
+  };
 }
 
 function openWho(){
@@ -2168,6 +2544,10 @@ function openWho(){
       'Andere Kalender sind für dich nicht sichtbar.</p>';
   }
   body+='<hr class="sep">'+
+    '<div><div class="sec-label" style="margin-bottom:6px">Mitteilungen aufs Handy</div>'+
+      '<div id="pushBox"></div>'+
+    '</div>'+
+    '<hr class="sep">'+
     '<div><div class="sec-label" style="margin-bottom:6px">Eigenes Passwort ändern</div>'+
       '<div class="field" style="margin-bottom:10px"><label for="pw_neu">Neues Passwort</label><input id="pw_neu" type="password" autocomplete="new-password"></div>'+
       '<button class="btn" id="pw_go">Passwort speichern</button>'+
@@ -2178,6 +2558,8 @@ function openWho(){
   var okBtn=$("zugangOk");
   if(okBtn) okBtn.onclick=function(){ S.neuerZugang=null; openWho(); };
 
+  zeichnePush();
+
   if(istAdmin()){
     var rollenFelder=function(){
       var r=$("ad_rolle").value;
@@ -2185,6 +2567,7 @@ function openWho(){
       $("ad_startWrap").hidden = (r!=="closer");
     };
     $("ad_rolle").onchange=rollenFelder; rollenFelder();
+    $("ad_user").onblur=function(){ this.value=benutzerNorm(this.value); };
     $("ad_go").onclick=function(){
       var n=$("ad_name").value.trim(), u=benutzerNorm($("ad_user").value), pw=$("ad_pw").value.trim(),
           rolle=$("ad_rolle").value, err=$("ad_err");
@@ -2216,7 +2599,7 @@ function openWho(){
         openWho(); toast(n+" ist angelegt.");
       }).catch(function(e){
         $("ad_go").disabled=false; err.hidden=false;
-        err.textContent=(e&&e.message)||"Anlegen hat nicht geklappt.";
+        err.textContent=meldung(e);
       });
     };
     Array.prototype.forEach.call(document.querySelectorAll("[data-neupw]"),function(b){
@@ -2244,6 +2627,7 @@ function openWho(){
       });
     };
 
+    $("ns_user").onblur=function(){ this.value=benutzerNorm(this.value); };
     $("ns_go").onclick=function(){
       var name=$("ns_name").value.trim(), u=benutzerNorm($("ns_user").value), pw=$("ns_pw").value.trim(), err=$("ns_err");
       err.hidden=true;
@@ -2261,7 +2645,7 @@ function openWho(){
         openWho(); toast(name+" ist freigeschaltet.");
       }).catch(function(e){
         $("ns_go").disabled=false; err.hidden=false;
-        err.textContent=(e&&e.message)||"Anlegen hat nicht geklappt.";
+        err.textContent=meldung(e);
       });
     };
     var wl=$("whoList");
@@ -2478,8 +2862,46 @@ function wire(){
   Array.prototype.forEach.call(document.querySelectorAll(".ul-knopf"),function(b){
     b.onclick=function(){ S.view=b.dataset.view; render(); };
   });
-  $("prevW").onclick=function(){ S.weekStart=addDays(S.weekStart,-7); render(); };
-  $("nextW").onclick=function(){ S.weekStart=addDays(S.weekStart,7); render(); };
+  function springen(richtung){
+    var m=modus();
+    if(m==="tag"){
+      S.tag=ymd(addDays(parseYmd(S.tag),richtung));
+      S.weekStart=mondayOf(parseYmd(S.tag));
+    } else if(m==="monat"){
+      var a=monatsAnker(); a.setMonth(a.getMonth()+richtung);
+      S.tag=ymd(a); S.weekStart=mondayOf(a);
+    } else {
+      S.weekStart=addDays(S.weekStart,7*richtung);
+      S.tag=ymd(S.weekStart);
+    }
+    render();
+  }
+  $("prevW").onclick=function(){ springen(-1); };
+  $("nextW").onclick=function(){ springen(1); };
+  $("heuteBtn").onclick=function(){
+    var h=new Date();
+    S.tag=ymd(h); S.weekStart=mondayOf(h); render();
+  };
+  Array.prototype.forEach.call($("modusBar").querySelectorAll("button"),function(b){
+    b.onclick=function(){ setModus(b.dataset.m); };
+  });
+  // Wischen nach links und rechts blaettert
+  (function(){
+    var el=$("calGrid"); if(!el) return;
+    var x0=null,y0=null;
+    el.addEventListener("touchstart",function(e){
+      if(e.touches.length!==1){ x0=null; return; }
+      x0=e.touches[0].clientX; y0=e.touches[0].clientY;
+    },{passive:true});
+    el.addEventListener("touchend",function(e){
+      if(x0==null) return;
+      var t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0;
+      x0=null;
+      if(modus()==="woche") return;                  // dort wird seitwaerts geschoben
+      if(Math.abs(dx)<60||Math.abs(dy)>Math.abs(dx)) return;
+      springen(dx<0?1:-1);
+    },{passive:true});
+  })();
   $("newBtn").onclick=function(){ openForm(null); };
   $("bellBtn").onclick=function(){ openFeed(false); };
   $("whoBtn").onclick=openWho;
