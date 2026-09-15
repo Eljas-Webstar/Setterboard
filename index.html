@@ -630,15 +630,19 @@ var MAIL_DOMAIN = "@setterboard.local";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
-   Haken an  : Anmeldung liegt dauerhaft auf dem Gerät, alle Tabs teilen sie sich.
-   Haken aus : Anmeldung gilt nur für diesen Tab und endet beim Schließen.
-               So kann man in mehreren Tabs gleichzeitig als Admin, Closer und Setter arbeiten. */
+   Haken an  : Anmeldung liegt dauerhaft auf dem Gerät und gilt in allen Fenstern.
+   Haken aus : Anmeldung gilt nur für dieses Fenster, eigener Speicher, eigener Kanal.
+               So kann man gleichzeitig als Admin, Closer und Setter arbeiten,
+               ohne dass sich die Fenster gegenseitig abmelden. */
 var BLEIBEN = "sb_bleiben";
+// Derselbe Platz, den Supabase von sich aus nimmt. So bleiben bestehende Anmeldungen gültig.
+var HAUPT_KEY = "sb-" + SB_URL.split("//")[1].split(".")[0] + "-auth-token";
+
 function bleibenAn(){
   try{
-    var eigen=sessionStorage.getItem(BLEIBEN);     // Wahl dieses Fensters
+    var eigen=sessionStorage.getItem(BLEIBEN);
     if(eigen) return eigen!=="nein";
-    return localStorage.getItem(BLEIBEN)!=="nein"; // sonst die zuletzt getroffene Wahl
+    return localStorage.getItem(BLEIBEN)!=="nein";
   }catch(e){ return true; }
 }
 function bleibenSetzen(an){
@@ -647,30 +651,37 @@ function bleibenSetzen(an){
     localStorage.setItem(BLEIBEN, an?"ja":"nein");
   }catch(e){}
 }
-var authSpeicher = {
-  getItem:function(k){
-    try{
-      if(bleibenAn()) return localStorage.getItem(k);
-      return sessionStorage.getItem(k);
-    }catch(e){ return null; }
-  },
-  setItem:function(k,v){
-    try{
-      if(bleibenAn()) localStorage.setItem(k,v);
-      else sessionStorage.setItem(k,v);
-    }catch(e){}
-  },
-  removeItem:function(k){
-    try{
-      if(bleibenAn()) localStorage.removeItem(k);
-      sessionStorage.removeItem(k);
-    }catch(e){}
-  }
-};
+function fensterNummer(){
+  var n=null;
+  try{
+    n=sessionStorage.getItem("sb_fenster");
+    if(!n){ n=String(Date.now())+String(Math.floor(Math.random()*1000)); sessionStorage.setItem("sb_fenster",n); }
+  }catch(e){ n="1"; }
+  return n;
+}
+
+// Beim Laden festgelegt. Ein Wechsel geschieht immer über einen Neustart der Seite.
+var FENSTER_MODUS = !bleibenAn();
+var SPEICHER_KEY  = FENSTER_MODUS ? ("sb-fenster-"+fensterNummer()) : HAUPT_KEY;
+var SPEICHER      = FENSTER_MODUS ? window.sessionStorage : window.localStorage;
+
 var sb = (window.supabase && window.supabase.createClient)
   ? window.supabase.createClient(SB_URL, SB_KEY,
-      { auth:{ persistSession:true, autoRefreshToken:true, storage:authSpeicher } })
+      { auth:{ persistSession:true, autoRefreshToken:true, storage:SPEICHER, storageKey:SPEICHER_KEY } })
   : null;
+
+/* Aus dem Fenstermodus dauerhaft werden: Anmeldung umziehen und neu starten. */
+function dauerhaftMachen(){
+  try{
+    var wert=sessionStorage.getItem(SPEICHER_KEY);
+    if(wert) localStorage.setItem(HAUPT_KEY, wert);
+    sessionStorage.removeItem(SPEICHER_KEY);
+    sessionStorage.removeItem(BLEIBEN);
+  }catch(e){}
+  bleibenSetzen(true);
+  location.reload();
+}
+
 function kontoAnlegen(benutzer,passwort){
   var zweit = window.supabase.createClient(SB_URL, SB_KEY, { auth:{ persistSession:false, autoRefreshToken:false } });
   return zweit.auth.signUp({ email:mailVon(benutzer), password:passwort }).then(function(r){
@@ -1385,7 +1396,7 @@ function redrawTeamLists(){
 
 /* ---------------- Anmeldung ---------------- */
 function renderGate(){
-  var kb=$("lg_bleiben"); if(kb) kb.checked=bleibenAn();
+  var kb=$("lg_bleiben"); if(kb) kb.checked=!FENSTER_MODUS;
   $("gateTitel").textContent = "Anmelden";
   $("gateText").textContent = "Melde dich mit deinem Benutzernamen und Passwort an.";
   $("loginBox").hidden = false;
@@ -1408,6 +1419,7 @@ function anmelden(){
       return;
     }
     $("lg_pw").value="";
+    if(FENSTER_MODUS && kb && kb.checked){ dauerhaftMachen(); return; }
     nachAnmeldung(r.data.user);
   });
 }
@@ -2773,18 +2785,17 @@ function openWho(){
     S.me=null; closeOverlay();
     $("app").hidden=true; $("untenleiste").hidden=true; $("gate").hidden=false; renderGate();
   }
+  // Abmelden gilt für dieses Gerät. Handy und andere Geräte bleiben angemeldet.
   $("logoutBtn").onclick=function(){
-    if(sb) sb.auth.signOut();
+    if(sb) sb.auth.signOut({ scope:"local" });
     LS.del("sb_me"); zumGate();
   };
-  // Nur dieses Fenster abmelden. Andere Fenster und das Handy bleiben angemeldet.
+  // Nur dieses Fenster abmelden, alle anderen Fenster laufen weiter.
   $("wechselBtn").onclick=function(){
     bleibenSetzen(false);
-    if(sb) sb.auth.signOut({ scope:"local" });
-    try{ Object.keys(sessionStorage).forEach(function(k){ if(k.indexOf("sb-")===0) sessionStorage.removeItem(k); }); }catch(e){}
-    zumGate();
-    var kb=$("lg_bleiben"); if(kb) kb.checked=false;
-    toast("Nur dieses Fenster ist abgemeldet.");
+    if(sb) sb.auth.signOut({ scope:"local" }).then(neustart).catch(neustart);
+    else neustart();
+    function neustart(){ location.reload(); }
   };
 }
 
