@@ -605,6 +605,8 @@ main{padding-bottom:86px}
         <label for="lg_pw">Passwort</label>
         <input id="lg_pw" type="password" autocomplete="current-password">
       </div>
+      <label class="check" style="margin-bottom:12px"><input type="checkbox" id="lg_bleiben" checked>
+        <span><b>Angemeldet bleiben</b><br>Ohne Haken gilt die Anmeldung nur für dieses Fenster und endet, wenn du es schließt.</span></label>
       <button class="btn primary" id="lg_go" style="width:100%">Anmelden</button>
       <p class="err" id="lg_err" hidden style="margin-top:10px"></p>
       <p class="hint" style="margin-top:14px">
@@ -626,8 +628,37 @@ var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
+/* Angemeldet bleiben.
+   Haken an  : Anmeldung liegt dauerhaft auf dem Gerät, alle Tabs teilen sie sich.
+   Haken aus : Anmeldung gilt nur für diesen Tab und endet beim Schließen.
+               So kann man in mehreren Tabs gleichzeitig als Admin, Closer und Setter arbeiten. */
+var BLEIBEN = "sb_bleiben";
+function bleibenAn(){
+  try{ return localStorage.getItem(BLEIBEN)!=="nein"; }catch(e){ return true; }
+}
+function bleibenSetzen(an){
+  try{ localStorage.setItem(BLEIBEN, an?"ja":"nein"); }catch(e){}
+}
+var authSpeicher = {
+  getItem:function(k){
+    try{
+      if(bleibenAn()) return localStorage.getItem(k);
+      return sessionStorage.getItem(k);
+    }catch(e){ return null; }
+  },
+  setItem:function(k,v){
+    try{
+      if(bleibenAn()){ localStorage.setItem(k,v); sessionStorage.removeItem(k); }
+      else { sessionStorage.setItem(k,v); localStorage.removeItem(k); }
+    }catch(e){}
+  },
+  removeItem:function(k){
+    try{ localStorage.removeItem(k); sessionStorage.removeItem(k); }catch(e){}
+  }
+};
 var sb = (window.supabase && window.supabase.createClient)
-  ? window.supabase.createClient(SB_URL, SB_KEY, { auth:{ persistSession:true, autoRefreshToken:true } })
+  ? window.supabase.createClient(SB_URL, SB_KEY,
+      { auth:{ persistSession:true, autoRefreshToken:true, storage:authSpeicher } })
   : null;
 function kontoAnlegen(benutzer,passwort){
   var zweit = window.supabase.createClient(SB_URL, SB_KEY, { auth:{ persistSession:false, autoRefreshToken:false } });
@@ -1343,6 +1374,7 @@ function redrawTeamLists(){
 
 /* ---------------- Anmeldung ---------------- */
 function renderGate(){
+  var kb=$("lg_bleiben"); if(kb) kb.checked=bleibenAn();
   $("gateTitel").textContent = "Anmelden";
   $("gateText").textContent = "Melde dich mit deinem Benutzernamen und Passwort an.";
   $("loginBox").hidden = false;
@@ -1351,6 +1383,8 @@ function renderGate(){
 function anmelden(){
   var u=benutzerNorm($("lg_user").value), pw=$("lg_pw").value, err=$("lg_err");
   err.hidden=true;
+  var kb=$("lg_bleiben");
+  if(kb) bleibenSetzen(kb.checked);
   if(!u||!pw){ err.hidden=false; err.textContent="Benutzername und Passwort eingeben."; return; }
   $("lg_go").disabled=true;
   sb.auth.signInWithPassword({ email:mailVon(u), password:pw }).then(function(r){
