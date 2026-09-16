@@ -1,0 +1,61 @@
+# Setterboard
+
+Terminkalender für das Setting im Pflegekassen-Geschäft. Setter telefonieren Werbe-Leads
+ab und tragen Hausbesuche in den Kalender eines Closers ein, der zu den Kunden fährt.
+
+Live: https://eljas-webstar.github.io/Setterboard/
+Repo: git@github-setterboard:Eljas-Webstar/Setterboard.git (Deploy Key, Push direkt möglich)
+
+## Aufbau
+
+Eine einzige HTML-Datei, kein Build-Schritt, Vanilla JS in einer IIFE.
+
+| Datei | Zweck |
+|---|---|
+| `index.html` | die ganze App |
+| `sw.js` | Hintergrunddienst für Push und Homescreen |
+| `manifest.webmanifest`, `icon-*.png` | App-Symbol und Start als App |
+| `sql/` | alles, was im Supabase SQL Editor läuft |
+| `funktion/push-senden.ts` | Edge Function, verschickt die Mitteilungen |
+| `docs/push-einrichten.md` | Anleitung, ohne Schlüssel |
+
+Arbeitskopie beim Bauen: `/Users/Eljakim/Downloads/setterboard-supabase.html`,
+danach nach `setterboard-repo/index.html` kopieren, committen, pushen.
+GitHub Pages zieht in ein bis zwei Minuten nach.
+
+## Supabase
+
+Projekt `zdacotoynkvzlagwfdxp`, Region Frankfurt. In der App stehen nur die
+Projektadresse, der publishable key und der öffentliche Push-Schlüssel.
+service_role key und privater Push-Schlüssel gehören ausschließlich in Supabase.
+
+Tabellen: `kalender`, `personen`, `termine`, `sperrtage`, `ereignisse`,
+`push_geraete`, `push_warteschlange`, `anfragen`, `einladungen`.
+Zugriff über RLS, Hilfsfunktionen `mein_kalender()` und `bin_admin()`.
+
+Benutzername wird intern zu `benutzer@setterboard.local`.
+
+## Fallen, die schon einmal Zeit gekostet haben
+
+- **Edge Function heißt in der Adresse `pusch-senden`**, angezeigt wird `push-senden`.
+  Der Cronjob muss auf die Adresse zeigen, sonst 404.
+- **Verify JWT ist bei der Funktion aus**, der Zeitplan ruft ohne Schlüssel auf.
+- **Klassennamen prüfen, bevor neue vergeben werden.** `.marke` gab es doppelt,
+  die Überschrift bekam den Chip-Hintergrund.
+- **Beim Ausschneiden großer Blöcke mit Python-Indexen** kann ein ganzer Abschnitt
+  verschwinden oder sich verdoppeln. Danach immer prüfen, welche Funktionen fehlen:
+  `python3` Regex über `^function (\w+)` im alten und neuen Stand vergleichen.
+- **Anmeldung pro Fenster:** zwei Supabase-Clients, einer auf localStorage,
+  einer auf sessionStorage mit eigenem storageKey. `signOut` immer mit
+  `scope:"local"`, sonst fliegt das Handy mit raus.
+- **Store greift auf die globale Variable `sb` zu**, ein Client-Wechsel wirkt
+  deshalb sofort, ohne Neuaufbau.
+
+## Testen
+
+Lokaler Server über `.claude/launch.json` (python http.server auf 8765),
+Testkopie nach `scratchpad/web/sb.html`. Für zwei Rollen gleichzeitig zwei Tabs,
+im zweiten unter Zugänge auf "Hier anderes Konto".
+
+Testzugänge: `testfenster` und `testsetter2`, Passwort `Test123456`.
+Beide löschen, sobald sie nicht mehr gebraucht werden.
