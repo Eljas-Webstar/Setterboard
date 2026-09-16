@@ -667,7 +667,7 @@ main{padding-bottom:86px}
       <label class="merk"><input type="checkbox" id="lg_bleiben" checked><span>Angemeldet bleiben</span></label>
       <p class="err" id="lg_err" hidden style="margin-top:10px"></p>
       <p class="hint" style="margin-top:14px">
-        Noch keinen Zugang? <button class="btn ghost" id="zeigNeu" style="padding:2px 8px">Als Setter anmelden</button>
+        Noch keinen Zugang? <button class="btn ghost" id="zeigNeu" style="padding:2px 8px">Setter registrieren</button>
       </p>
     </div>
 
@@ -688,7 +688,7 @@ main{padding-bottom:86px}
       </div>
       <p class="hint" style="margin-bottom:12px">Im nächsten Schritt wählst du, für welchen Closer du Termine setzt.</p>
       <div class="warnbox" id="nu_einladung" hidden style="margin-bottom:12px"></div>
-      <button class="btn primary" id="nu_go" style="width:100%">Zugang anlegen</button>
+      <button class="btn primary" id="nu_go" style="width:100%">Registrieren</button>
       <p class="err" id="nu_err" hidden style="margin-top:10px"></p>
       <p class="hint" style="margin-top:14px">
         Schon einen Zugang? <button class="btn ghost" id="zeigLogin" style="padding:2px 8px">Zur Anmeldung</button>
@@ -1656,7 +1656,7 @@ function einladungAusLink(){
 function zeigeNeu(an){
   $("loginBox").hidden=an;
   $("neuBox").hidden=!an;
-  $("gateTitel").textContent = an ? "Als Setter anmelden" : "Anmelden";
+  $("gateTitel").textContent = an ? "Setter registrieren" : "Anmelden";
   $("gateText").textContent = an
     ? "Leg dir einen Zugang an. Danach sagst du, für wen du Termine setzt."
     : "Melde dich mit deinem Benutzernamen und Passwort an.";
@@ -3040,7 +3040,8 @@ function openWho(){
       }).join(""):'<p class="hint">Noch kein Kalender angelegt.</p>')+
       '</div>'+
       '<hr class="sep">'+
-      '<div><div class="sec-label" style="margin-bottom:6px">Neuen Zugang anlegen</div>'+
+      '<div><div class="sec-label" style="margin-bottom:6px">Closer oder Setter anlegen</div>'+
+        '<p class="hint" style="margin-bottom:8px">Ein Closer bekommt einen eigenen Kalender. Benutzername und Passwort vergibst du hier und gibst sie weiter.</p>'+
         '<div class="two" style="margin-bottom:10px">'+
           '<div class="field"><label for="ad_name">Name</label><input id="ad_name" autocomplete="off"></div>'+
           '<div class="field"><label for="ad_rolle">Rolle</label><select id="ad_rolle">'+
@@ -3093,7 +3094,10 @@ function openWho(){
       '<p class="hint">Du trägst Termine im Kalender von '+esc(S.me.gehoertZu||"deinem Closer")+' ein. '+
       'Andere Kalender sind für dich nicht sichtbar.</p>';
   }
-  if(S.me.rolle==="closer"||istAdmin()){
+  if(istAdmin()){
+    // Admin: erst die Zugänge samt Anlegen, die Einladung danach
+    body='<div id="anfrageBox"></div>'+body+'<hr class="sep"><div id="teilenBox"></div>';
+  } else if(S.me.rolle==="closer"){
     body='<div id="anfrageBox"></div>'+
       '<div id="teilenBox" style="margin-bottom:14px"></div>'+body;
   }
