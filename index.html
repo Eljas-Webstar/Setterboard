@@ -46,26 +46,26 @@
 
 /* Dunkler Kalender. Wird über den Schalter unter Zugänge eingestellt. */
 :root[data-theme="dunkel"]{
-  --paper:#0C1420;
-  --surface:#131E2D;
-  --surface-2:#1A283A;
-  --line:#2A3B52;
-  --line-soft:#223246;
-  --ink:#EAF1F9;
-  --ink-2:#AFC1D6;
-  --ink-3:#7D91A9;
-  --accent:#2F7FD4;
-  --accent-soft:#1B3350;
-  --accent-ink:#9CC8F2;
-  --money:#4BC79C;
-  --money-soft:#153229;
-  --ok:#4BC79C;
-  --ok-soft:#153229;
-  --bad:#F08A80;
-  --bad-soft:#3A1E1B;
-  --warn:#E3A552;
-  --warn-soft:#352719;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 26px -14px rgba(0,0,0,.7);
+  --paper:#1B1B19;
+  --surface:#222220;
+  --surface-2:#2A2A27;
+  --line:#3A3A36;
+  --line-soft:#31312E;
+  --ink:#F2F1EC;
+  --ink-2:#C6C4BC;
+  --ink-3:#928F86;
+  --accent:#4A8FD4;
+  --accent-soft:#25303C;
+  --accent-ink:#8FBEEB;
+  --money:#5FB894;
+  --money-soft:#22302B;
+  --ok:#5FB894;
+  --ok-soft:#22302B;
+  --bad:#E08A80;
+  --bad-soft:#382625;
+  --warn:#D3A263;
+  --warn-soft:#332B20;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px -14px rgba(0,0,0,.8);
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -157,23 +157,39 @@ html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
 .calinner{min-width:100%}
 
 /* Monatsgitter */
-.monkopf{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0}
-.monkopf div{padding:7px 4px;text-align:center;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
-.mongrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
-.montag{border-left:1px solid var(--line);border-top:1px solid var(--line);min-height:104px;padding:5px 5px 6px;text-align:left;background:transparent;cursor:pointer;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.monkopf{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--surface-2);
+  border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0}
+.monkopf div{padding:9px 6px;text-align:center;font-family:var(--font-display);font-size:11.5px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);border-left:1px solid var(--line)}
+.monkopf div:first-child{border-left:0}
+.monkopf div.we{color:var(--ink-3);opacity:.6}
+.mongrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--surface);
+  border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+.montag{border-left:1px solid var(--line);border-top:1px solid var(--line);min-height:112px;
+  padding:7px 7px 8px;text-align:left;background:transparent;cursor:pointer;
+  display:flex;flex-direction:column;gap:4px;overflow:hidden;transition:background .12s}
 .montag:nth-child(7n+1){border-left:0}
-.montag .mzahl{font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--ink-2);align-self:flex-start;line-height:1.5;min-width:22px;text-align:center;border-radius:999px}
+.montag .mzahl{font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--ink-2);
+  align-self:flex-start;line-height:22px;min-width:22px;height:22px;text-align:center;border-radius:999px}
+.montag.we{background:var(--surface-2)}
 .montag.fremd{background:var(--surface-2)}
-.montag.fremd .mzahl{color:var(--ink-3);opacity:.6}
+.montag.fremd .mzahl{color:var(--ink-3);opacity:.5}
+.montag.fremd .mzeile{opacity:.5}
 .montag.heute .mzahl{background:var(--accent);color:#fff}
 .montag.gesperrt{background:repeating-linear-gradient(135deg,transparent 0 9px,var(--line-soft) 9px 18px)}
 .montag:hover{background:var(--accent-soft)}
-.mzeile{display:flex;gap:4px;align-items:baseline;font-size:11.5px;line-height:1.3;border-left:3px solid var(--st,var(--accent));padding-left:4px;border-radius:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.mzeile b{font-family:var(--font-mono);font-weight:600;color:var(--ink-3);font-size:10.5px}
-.mzeile span{overflow:hidden;text-overflow:ellipsis;font-weight:600}
-.mmehr{font-size:10.5px;color:var(--ink-3)}
+.mzeile{display:flex;gap:5px;align-items:baseline;font-size:11.5px;line-height:1.35;
+  background:var(--surface-2);border-left:3px solid var(--st,var(--accent));border-radius:0 5px 5px 0;
+  padding:2px 5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mzeile b{font-family:var(--font-mono);font-weight:600;color:var(--ink-3);font-size:10.5px;flex:0 0 auto}
+.mzeile span{overflow:hidden;text-overflow:ellipsis;font-weight:600;color:var(--ink)}
+.mzeile.st-stattgefunden{background:var(--ok-soft)}
+.mzeile.st-nichtda{background:var(--bad-soft)}
+.mzeile.st-folgetermin{background:var(--warn-soft)}
+.mmehr{font-size:10.5px;color:var(--ink-3);padding-left:3px}
+.mfahrt{margin-top:auto;font-family:var(--font-mono);font-size:10px;color:var(--ink-3);opacity:.85}
 .mpunkte{display:flex;gap:3px;flex-wrap:wrap;margin-top:1px}
-.mpunkte i{width:6px;height:6px;border-radius:999px;background:var(--st,var(--accent));display:block}
+.mpunkte i{width:7px;height:7px;border-radius:999px;background:var(--st,var(--accent));display:block}
 .weekwrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
 .weekmain{min-width:0}
 .side{
@@ -301,7 +317,24 @@ html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
 }
 .griff:hover::before,.griff.zieht::before{border-color:var(--accent);background:var(--accent-soft)}
 .griff:hover::after,.griff.zieht::after{background:var(--accent);height:30px}
-@media (max-width:700px){ .griff{display:none} }
+@media (max-width:700px){
+  .griff{display:none}
+  .panel{
+    width:100%;border-left:0;
+    overscroll-behavior:contain;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .panel-body{
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+    padding:14px;
+  }
+  .panel-head{padding:12px 14px}
+  .panel-foot{padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+}
+/* Solange ein Panel offen ist, steht die Seite dahinter still */
+body.panel-offen{overflow:hidden;position:relative;width:100%}
 .panel-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
 .panel-head h3{font-size:16px;flex:1}
 .panel-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
@@ -349,6 +382,20 @@ html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
 .kopfmarke{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .kopfmarke-name{font-family:var(--font-display);font-weight:800;font-size:23px;letter-spacing:-.01em;color:var(--accent)}
 .kopfmarke-satz{font-size:13px;color:var(--ink-3);margin-top:2px}
+.kalreihe{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.kalkachel{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);
+  border-radius:var(--radius);padding:10px 14px 10px 10px;cursor:pointer;text-align:left;min-width:190px}
+.kalkachel:hover{border-color:var(--accent)}
+.kalkachel.eigen{border-color:var(--accent);background:var(--accent-soft)}
+.kk-text b{display:block;font-size:14.5px;font-weight:700;line-height:1.2}
+.kk-text small{display:block;font-size:12px;color:var(--ink-3);margin-top:1px}
+.naechstzeile{font-size:13.5px;color:var(--ink-2);margin-bottom:14px}
+.naechstzeile b{color:var(--ink-3);text-transform:uppercase;font-size:11px;letter-spacing:.07em;margin-right:6px}
+.kalsuche{margin-bottom:10px}
+.kalsuche input{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:9px 14px;width:100%;max-width:280px}
+.who .burger{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;flex:0 0 auto;opacity:.65}
+.who:hover .burger{opacity:1}
+@media (max-width:640px){ .who .who-text{display:none} }
 .merk{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;color:var(--ink-2);cursor:pointer}
 .merk input{width:auto;margin:0}
 .schrittleiste{display:flex;gap:8px;margin-bottom:4px}
@@ -542,9 +589,10 @@ main{padding-bottom:86px}
         <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
         <span class="count" id="bellCount" hidden>0</span>
       </button>
-      <button class="who" id="whoBtn">
+      <button class="who" id="whoBtn" title="Einstellungen">
         <span class="avatar" id="whoAv">?</span>
-        <span><small id="whoRole">Rolle</small><b id="whoName">Name</b></span>
+        <span class="who-text"><small id="whoRole">Rolle</small><b id="whoName">Name</b></span>
+        <svg class="burger" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
     </div>
   </header>
@@ -569,6 +617,7 @@ main{padding-bottom:86px}
         </div>
         <h2 id="weekTitle">Woche</h2>
         <button class="heutebtn" id="heuteBtn">Heute</button>
+        <button class="heutebtn" id="sperrBtn" hidden title="Urlaub, Hochzeit, Termin privat">Tag streichen</button>
         <span class="startort" id="weekStart"></span>
         <span class="range mono" id="weekRange"></span>
         <div class="spacer"></div>
@@ -814,7 +863,7 @@ function meldung(e){
 /* ---------------- state ---------------- */
 var S = {
   me:null, view:"home", weekStart:mondayOf(new Date()), tag:ymd(new Date()),
-  kalModus:null, wartet:null, anfragen:[],
+  kalModus:null, wartet:null, anfragen:[], closerSuche:"", einladKal:null,
   appts:[], team:[], activity:[], sperr:[], filterCloser:"alle",
   lastSeen:Number(LS.get("sb_lastSeen")||0),
   ready:false, offline:false, firstFeed:true, neuerZugang:null, adminKal:null, teamSig:""
@@ -1754,39 +1803,55 @@ function render(){
 
 function renderHomeAdmin(){
   var cs=closers();
+  var filter=(S.closerSuche||"").toLowerCase();
+  var sichtbar=cs.filter(function(c){ return !filter || c.name.toLowerCase().indexOf(filter)>-1; });
   var html='<div class="hallo"><h2>Hallo '+esc(S.me.name)+'</h2>'+
     '<p>Adminzugang. Du siehst alle Kalender, ihre Setter und Zugänge.</p></div>';
-  html+='<div class="homegrid">'+cs.map(function(c){
-    var t=S.appts.filter(function(a){ return a.closer===c.name&&a.status!=="abgesagt"; });
-    var setter=S.team.filter(function(m){ return m.rolle==="setter"&&m.gehoertZu===c.name; });
-    return '<button class="kal-karte" data-kal="'+esc(c.name)+'">'+
-      '<span class="kopf"><span class="avatar">'+esc(initials(c.name))+'</span><b>'+esc(c.name)+'</b></span>'+
-      '<span class="startzeile">🚗 ab '+esc(startPunkt(c.name).voll||startPunkt(c.name).text)+'</span>'+
-      '<span class="zahlen">'+
-        '<span class="zahl"><b>'+t.length+'</b><span>Termine</span></span>'+
-        '<span class="zahl"><b>'+setter.length+'</b><span>Setter</span></span>'+
-      '</span>'+
-      '<span class="naechster">'+(setter.length?esc(setter.map(function(m){ return m.name; }).join(", ")):"Kein Setter freigeschaltet")+'</span>'+
-    '</button>';
-  }).join("")+'</div>';
-  if(!cs.length) html+='<div class="banner"><span>📭</span><div>Noch kein Closer angelegt.</div></div>';
+
+  html+=kalenderSuchfeld(cs.length);
+  html+='<div class="kalreihe">'+(sichtbar.length?sichtbar.map(function(c){
+    var t=S.appts.filter(function(a){ return a.closer===c.name&&a.status!=="abgesagt"; }).length;
+    var setter=S.team.filter(function(m){ return m.rolle==="setter"&&m.gehoertZu===c.name; }).length;
+    return kachel(c.name, t+(t===1?" Termin":" Termine")+" · "+setter+(setter===1?" Setter":" Setter"));
+  }).join(""):'<p class="hint">Kein Kalender mit diesem Namen.</p>')+'</div>';
+
+  if(!cs.length) html+='<div class="banner"><span>📭</span><div>Noch kein Closer angelegt. Über das Menü oben rechts legst du einen an.</div></div>';
+
   html+='<div class="wege">'+
     '<button class="weg" data-go="alle">Alle Termine im Kalender<small>Jeder Kalender, chronologisch</small></button>'+
     '<button class="weg" data-go="zahlen">Zahlen<small>Über alle Kalender</small></button>'+
-    '<button class="weg" data-go="zugaenge">Zugänge verwalten<small>Closer und Setter, Zugang entziehen</small></button>'+
   '</div>';
+
   $("view-home").innerHTML=html;
+  bindeKalenderSuche();
   Array.prototype.forEach.call($("view-home").querySelectorAll("[data-kal]"),function(b){
     b.onclick=function(){ S.adminKal=b.dataset.kal; S.view="week"; renderFilter(); render(); };
   });
   Array.prototype.forEach.call($("view-home").querySelectorAll("[data-go]"),function(b){
     b.onclick=function(){
       var z=b.dataset.go;
-      if(z==="zugaenge"){ openWho(); return; }
       if(z==="zahlen"){ S.adminKal=null; S.view="numbers"; render(); return; }
       S.adminKal=null; S.view="week"; renderFilter(); render();
     };
   });
+}
+
+/* Eine Kachel pro Kalender, klein und antippbar */
+function kachel(name, unten, eigen){
+  return '<button class="kalkachel'+(eigen?" eigen":"")+'" data-kal="'+esc(name)+'">'+
+    '<span class="avatar">'+esc(initials(name))+'</span>'+
+    '<span class="kk-text"><b>'+esc(name)+'</b><small>'+esc(unten||"")+'</small></span>'+
+  '</button>';
+}
+
+function kalenderSuchfeld(anzahl){
+  if(anzahl<4) return "";
+  return '<div class="kalsuche"><input id="kalSuche" type="search" placeholder="Closer suchen" '+
+    'value="'+esc(S.closerSuche||"")+'" autocomplete="off" spellcheck="false"></div>';
+}
+function bindeKalenderSuche(){
+  var f=$("kalSuche"); if(!f) return;
+  f.oninput=function(){ S.closerSuche=f.value; renderHome(); var n=$("kalSuche"); if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length); } };
 }
 
 function renderHome(){
@@ -1810,37 +1875,31 @@ function renderHome(){
     var offen=woche.filter(function(a){ return a.status==="geplant"; }).length;
     var naechst=erlaubteTermine().filter(function(a){ return a.status==="geplant"&&a.datum>=heute; })
       .sort(function(a,b){ return startMs(a)-startMs(b); })[0];
-    html+='<div class="homegrid"><button class="kal-karte" data-go="kalender">'+
-      '<span class="kopf"><span class="avatar">'+esc(initials(c))+'</span><b>'+esc(c)+'</b>'+
-        (istCloser?'<span class="ich">dein Kalender</span>':'')+'</span>'+
-      '<span class="startzeile">🚗 Fährt los ab '+esc(startPunkt(c).voll||startPunkt(c).text)+'</span>'+
-      '<span class="zahlen">'+
-        '<span class="zahl"><b>'+woche.length+'</b><span>diese Woche</span></span>'+
-        '<span class="zahl"><b>'+offen+'</b><span>noch offen</span></span>'+
-      '</span>'+
-      '<span class="naechster">'+(naechst
-        ? 'Als Nächstes: '+esc(name(naechst))+' in '+esc(ortText(naechst))+', '+esc(deDate(parseYmd(naechst.datum)))+' um '+esc(naechst.zeit)
-        : 'Kein Termin geplant')+'</span>'+
-    '</button></div>';
+    html+='<div class="kalreihe">'+
+      kachel(c, woche.length+(woche.length===1?" Termin diese Woche":" Termine diese Woche")+
+                (offen?" · "+offen+" offen":""), istCloser)+'</div>';
+    html+='<div class="naechstzeile">'+(naechst
+      ? '<b>Als Nächstes</b> '+esc(name(naechst))+' in '+esc(ortText(naechst))+', '+
+        esc(deDate(parseYmd(naechst.datum)))+' um '+esc(naechst.zeit)
+      : 'Kein Termin geplant')+'</div>';
   }
 
   html+='<div class="wege">'+
     (istCloser?'<button class="weg" data-go="heute">Heute<small>Deine Termine des Tages in Fahrreihenfolge</small></button>':'')+
-    '<button class="weg" data-go="kalender">Kalender<small>Die Woche mit allen Terminen</small></button>'+
+    '<button class="weg" data-go="kalender">Kalender<small>Tag, Woche und Monat</small></button>'+
     (istCloser?'':'<button class="weg" data-go="meine">Meine Termine<small>Nur was du selbst gesetzt hast</small></button>')+
     '<button class="weg" data-go="zahlen">Zahlen<small>Stattgefunden, ausgefallen, Folgetermine</small></button>'+
-    (istCloser?'<button class="weg" data-go="frei">Tag streichen<small>Urlaub, Hochzeit, Termin privat</small></button>':'')+
-    (istCloser?'<button class="weg" data-go="zugaenge">Zugänge<small>Setter freischalten oder sperren</small></button>':'')+
   '</div>';
 
   $("view-home").innerHTML=html;
+  Array.prototype.forEach.call($("view-home").querySelectorAll("[data-kal]"),function(b){
+    b.onclick=function(){ S.view="week"; renderFilter(); render(); };
+  });
   Array.prototype.forEach.call($("view-home").querySelectorAll("[data-go]"),function(b){
     b.onclick=function(){
       var z=b.dataset.go;
       if(z==="zahlen"){ S.view="numbers"; render(); return; }
-      if(z==="zugaenge"){ openWho(); return; }
       if(z==="heute"){ S.view="heute"; render(); return; }
-      if(z==="frei"){ openSperren(); return; }
       S.filterCloser=(z==="meine"?"meine":"alle");
       S.view="week"; renderFilter(); render();
     };
@@ -1939,6 +1998,7 @@ function renderWeek(){
     : (m==="woche") ? (ymd(S.weekStart)<=heuteYmd && heuteYmd<=ymd(addDays(S.weekStart,6)))
     : (monatsAnker().getMonth()===new Date().getMonth() && monatsAnker().getFullYear()===new Date().getFullYear());
   $("heuteBtn").hidden=amHeute;
+  $("sperrBtn").hidden = !(S.me && (S.me.rolle==="closer" || istAdmin()));
   var today=heuteYmd, list=visible(), html="";
   for(var i=0;i<6;i++){
     var d=addDays(start,i), key=ymd(d);
@@ -2038,17 +2098,30 @@ function renderTagRaster(){
   });
 }
 
+function tagesFahrtMinuten(liste){
+  if(!liste.length) return null;
+  var summe=0, ok=false, vor=null;
+  liste.forEach(function(a){
+    var f = vor ? fahrMin(vor.plz,vor.ort,a.plz,a.ort) : fahrVonStart(a.closer,a.plz,a.ort);
+    if(f!=null){ summe+=f; ok=true; }
+    vor=a;
+  });
+  var zurueck=vor?fahrVonStart(vor.closer,vor.plz,vor.ort):null;
+  if(zurueck!=null) summe+=zurueck;
+  return ok?summe:null;
+}
+
 /* Monat: Gitter mit allen Tagen, Tippen springt in den Tag */
 function renderMonat(list,today){
   var box=$("calGrid"); if(!box) return;
   var erster=monatsAnker(), monat=erster.getMonth();
   var start=mondayOf(erster);
-  var breit=window.matchMedia("(min-width:900px)").matches;
+  var breit=window.matchMedia("(min-width:620px)").matches;
   var maxZeilen=breit?3:0;               // auf dem Handy nur Punkte, sonst Zeilen
   var cName=meinCloser();
 
-  var kopf='<div class="monkopf">'+["Mo","Di","Mi","Do","Fr","Sa","So"].map(function(t){
-    return '<div>'+t+'</div>'; }).join("")+'</div>';
+  var kopf='<div class="monkopf">'+["Mo","Di","Mi","Do","Fr","Sa","So"].map(function(t,i){
+    return '<div'+(i>4?' class="we"':'')+'>'+t+'</div>'; }).join("")+'</div>';
 
   var zellen="", d=new Date(start);
   for(var i=0;i<42;i++){
@@ -2060,15 +2133,20 @@ function renderMonat(list,today){
     if(maxZeilen){
       inhalt=tagL.slice(0,maxZeilen).map(function(a){
         var st=STATUS[a.status]||STATUS.geplant;
-        return '<span class="mzeile" style="--st:'+st.color+'"><b>'+esc(a.zeit)+'</b><span>'+esc(name(a))+'</span></span>';
+        return '<span class="mzeile st-'+esc(a.status)+'" style="--st:'+st.color+'">'+
+          '<b>'+esc(a.zeit)+'</b><span>'+esc(name(a))+'</span></span>';
       }).join("");
       if(tagL.length>maxZeilen) inhalt+='<span class="mmehr">+'+(tagL.length-maxZeilen)+' weitere</span>';
+      var tf=tagesFahrtMinuten(tagL);
+      if(tf!=null) inhalt+='<span class="mfahrt">🚗 '+esc(minText(tf))+'</span>';
     } else if(tagL.length){
       inhalt='<span class="mpunkte">'+tagL.slice(0,6).map(function(a){
         var st=STATUS[a.status]||STATUS.geplant;
         return '<i style="--st:'+st.color+'"></i>'; }).join("")+'</span>';
     }
-    zellen+='<button class="montag'+(d.getMonth()!==monat?" fremd":"")+(key===today?" heute":"")+(sp?" gesperrt":"")+'" '+
+    var wochenende=(d.getDay()===0||d.getDay()===6);
+    zellen+='<button class="montag'+(d.getMonth()!==monat?" fremd":"")+(key===today?" heute":"")+
+      (sp?" gesperrt":"")+(wochenende?" we":"")+'" '+
       'data-tag="'+key+'"'+(sp?' title="'+esc(sp.grund||"nicht da")+'"':'')+'>'+
       '<span class="mzahl">'+d.getDate()+'</span>'+inhalt+'</button>';
     d=addDays(d,1);
@@ -2276,9 +2354,14 @@ function tile(lab,val,sub,money){
 }
 
 /* ---------------- overlays ---------------- */
-function closeOverlay(){ $("overlays").innerHTML=""; document.body.style.overflow=""; }
+function closeOverlay(){
+  $("overlays").innerHTML="";
+  document.body.style.overflow="";
+  document.body.classList.remove("panel-offen");
+}
 function overlay(title,bodyHtml,footHtml,tag){
   document.body.style.overflow="hidden";
+  document.body.classList.add("panel-offen");
   $("overlays").innerHTML=
     '<button class="scrim" id="scrim" aria-label="Schließen"></button>'+
     '<aside class="panel" data-overlay="'+esc(tag||"x")+'" role="dialog" aria-modal="true">'+
@@ -2788,6 +2871,7 @@ function zeichneThema(){
 
 function meinKalenderId(){
   if(S.me && S.me.kalender_id) return S.me.kalender_id;
+  if(istAdmin() && S.einladKal) return S.einladKal;
   if(istAdmin() && S.adminKal) return kalIdVon(S.adminKal);
   return null;
 }
@@ -2835,9 +2919,23 @@ function einladungsLink(code){
 
 function zeichneTeilen(){
   var box=$("teilenBox"); if(!box) return;
-  var kid=meinKalenderId();
+  var cs=closers();
+  var kid=meinKalenderId() || (istAdmin() && cs.length===1 ? kalIdVon(cs[0].name) : null);
+  if(!kid && istAdmin() && cs.length>1){
+    box.innerHTML='<div class="sec-label" style="margin-bottom:6px">Setter einladen</div>'+
+      '<div class="field" style="margin-bottom:8px"><label for="einlKal">Für welchen Kalender?</label>'+
+      '<select id="einlKal"><option value="">Bitte auswählen</option>'+
+      cs.map(function(c){ return '<option value="'+esc(kalIdVon(c.name))+'">'+esc(c.name)+'</option>'; }).join("")+
+      '</select></div><div id="einlOut"></div>';
+    $("einlKal").onchange=function(){
+      var w=$("einlKal").value;
+      if(w){ S.einladKal=w; zeichneTeilen(); }
+    };
+    return;
+  }
+  if(!kid) kid=S.einladKal||null;
   if(!kid){
-    box.innerHTML='<p class="hint">Wähl oben einen Kalender, dann kannst du dafür eine Einladung verschicken.</p>';
+    box.innerHTML='<p class="hint">Noch kein Kalender vorhanden, für den du einladen könntest.</p>';
     return;
   }
   box.innerHTML='<div class="sec-label" style="margin-bottom:6px">Setter einladen</div>'+
@@ -2920,7 +3018,8 @@ function openWho(){
     : '';
   if(istAdmin()){
     var cs3=closers();
-    body=zugangKasten+'<p class="hint">Alle Kalender mit ihren Zugängen. Der Schlüssel vergibt ein neues Passwort, das ✕ entzieht den Zugang.</p>'+
+    body=zugangKasten+'<div class="sec-label" style="margin-bottom:6px">Zugänge</div>'+
+      '<p class="hint" style="margin-bottom:8px">Alle Kalender mit ihren Zugängen. Das ✕ entzieht den Zugang.</p>'+
       '<div class="people" id="whoList">'+
       (cs3.length?cs3.map(function(c){
         var setter=S.team.filter(function(m){ return m.rolle==="setter"&&m.gehoertZu===c.name; });
@@ -2984,16 +3083,7 @@ function openWho(){
         '<button class="btn" id="st_go">Startpunkt speichern</button>'+
       '</div>'+
       '<hr class="sep">'+
-      '<div><div class="sec-label" style="margin-bottom:6px">Neuen Setter freischalten</div>'+
-        '<div class="field" style="margin-bottom:10px"><label for="ns_name">Name</label><input id="ns_name" autocomplete="off" placeholder="z. B. Eljakim"></div>'+
-        '<div class="two" style="margin-bottom:10px">'+
-          '<div class="field"><label for="ns_user">Benutzername</label><input id="ns_user" autocapitalize="none" spellcheck="false" autocomplete="off"></div>'+
-          '<div class="field"><label for="ns_pw">Passwort</label><input id="ns_pw" autocomplete="off"></div>'+
-        '</div>'+
-        '<button class="btn primary" id="ns_go" style="width:100%">Zugang erstellen</button>'+
-        '<p class="err" id="ns_err" hidden style="margin-top:8px"></p>'+
-        ''+
-      '</div>';
+      '';
   } else {
     body='<div class="kv">'+
       '<dt>Name</dt><dd><b>'+esc(S.me.name)+'</b></dd>'+
@@ -3024,7 +3114,7 @@ function openWho(){
       '<button class="btn" id="pw_go">Passwort speichern</button>'+
       '<p class="err" id="pw_err" hidden style="margin-top:8px"></p>'+
     '</div>';
-  overlay(istAdmin()?"Alle Zugänge":(S.me.rolle==="closer"?"Zugänge":"Dein Zugang"),body,foot,"who");
+  overlay("Einstellungen",body,foot,"who");
 
   var okBtn=$("zugangOk");
   if(okBtn) okBtn.onclick=function(){ S.neuerZugang=null; openWho(); };
@@ -3098,27 +3188,6 @@ function openWho(){
       });
     };
 
-    $("ns_user").onblur=function(){ this.value=benutzerNorm(this.value); };
-    $("ns_go").onclick=function(){
-      var name=$("ns_name").value.trim(), u=benutzerNorm($("ns_user").value), pw=$("ns_pw").value.trim(), err=$("ns_err");
-      err.hidden=true;
-      if(!name){ err.hidden=false; err.textContent="Name fehlt."; return; }
-      if(u.length<3){ err.hidden=false; err.textContent="Benutzername braucht mindestens drei Zeichen."; return; }
-      if(pw.length<6){ err.hidden=false; err.textContent="Passwort braucht mindestens sechs Zeichen."; return; }
-      $("ns_go").disabled=true;
-      kontoAnlegen(u,pw).then(function(uid){
-        return sb.from("personen").insert({ id:uid, name:name, rolle:"setter", kalender_id:S.me.kalender_id });
-      }).then(function(r){
-        $("ns_go").disabled=false;
-        if(r&&r.error) throw r.error;
-        logEvent("neu",name+" wurde als Setter freigeschaltet");
-        S.neuerZugang={name:name,user:u,pw:pw};
-        openWho(); toast(name+" ist freigeschaltet.");
-      }).catch(function(e){
-        $("ns_go").disabled=false; err.hidden=false;
-        err.textContent=meldung(e);
-      });
-    };
     var wl=$("whoList");
     if(wl) Array.prototype.forEach.call(wl.querySelectorAll("[data-del]"),function(b){
       b.onclick=function(){ askDelete(wl,b.dataset.del); };
@@ -3373,6 +3442,7 @@ function wire(){
     var h=new Date();
     S.tag=ymd(h); S.weekStart=mondayOf(h); render();
   };
+  $("sperrBtn").onclick=function(){ openSperren(); };
   Array.prototype.forEach.call($("modusBar").querySelectorAll("button"),function(b){
     b.onclick=function(){ setModus(b.dataset.m); };
   });
