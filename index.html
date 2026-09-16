@@ -346,6 +346,9 @@ html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
 .check input:checked ~ span b{color:var(--accent)}
 .check input{width:auto;margin-top:2px;flex:0 0 auto}
 .slots{display:flex;flex-wrap:wrap;gap:6px}
+.kopfmarke{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.kopfmarke-name{font-family:var(--font-display);font-weight:800;font-size:23px;letter-spacing:-.01em;color:var(--accent)}
+.kopfmarke-satz{font-size:13px;color:var(--ink-3);margin-top:2px}
 .merk{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;color:var(--ink-2);cursor:pointer}
 .merk input{width:auto;margin:0}
 .schrittleiste{display:flex;gap:8px;margin-bottom:4px}
@@ -595,8 +598,12 @@ main{padding-bottom:86px}
 
 <div class="gate" id="gate">
   <div class="gate-box">
+    <div class="kopfmarke">
+      <div class="kopfmarke-name">Setterboard</div>
+      <div class="kopfmarke-satz">Dein Terminkalender für Setter und Closer</div>
+    </div>
     <h1 id="gateTitel">Anmelden</h1>
-    <p id="gateText">Melde dich mit den Zugangsdaten an, die dein Closer dir gegeben hat.</p>
+    <p id="gateText">Melde dich mit deinem Benutzernamen und Passwort an.</p>
 
     <div id="loginBox">
       <div class="field" style="margin-bottom:10px">
@@ -611,7 +618,31 @@ main{padding-bottom:86px}
       <label class="merk"><input type="checkbox" id="lg_bleiben" checked><span>Angemeldet bleiben</span></label>
       <p class="err" id="lg_err" hidden style="margin-top:10px"></p>
       <p class="hint" style="margin-top:14px">
-        Keinen Zugang? Dein Closer oder der Admin legt dir einen an.
+        Noch keinen Zugang? <button class="btn ghost" id="zeigNeu" style="padding:2px 8px">Als Setter anmelden</button>
+      </p>
+    </div>
+
+    <div id="neuBox" hidden>
+      <div class="field" style="margin-bottom:10px">
+        <label for="nu_name">Dein Name</label>
+        <input id="nu_name" autocomplete="name" placeholder="Vorname und Nachname">
+      </div>
+      <div class="two" style="margin-bottom:10px">
+        <div class="field">
+          <label for="nu_user">Benutzername</label>
+          <input id="nu_user" autocapitalize="none" spellcheck="false" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="nu_pw">Passwort</label>
+          <input id="nu_pw" type="password" autocomplete="new-password">
+        </div>
+      </div>
+      <p class="hint" style="margin-bottom:12px">Im nächsten Schritt wählst du, für welchen Closer du Termine setzt.</p>
+      <div class="warnbox" id="nu_einladung" hidden style="margin-bottom:12px"></div>
+      <button class="btn primary" id="nu_go" style="width:100%">Zugang anlegen</button>
+      <p class="err" id="nu_err" hidden style="margin-top:10px"></p>
+      <p class="hint" style="margin-top:14px">
+        Schon einen Zugang? <button class="btn ghost" id="zeigLogin" style="padding:2px 8px">Zur Anmeldung</button>
       </p>
     </div>
 
@@ -783,7 +814,7 @@ function meldung(e){
 /* ---------------- state ---------------- */
 var S = {
   me:null, view:"home", weekStart:mondayOf(new Date()), tag:ymd(new Date()),
-  kalModus:null,
+  kalModus:null, wartet:null, anfragen:[],
   appts:[], team:[], activity:[], sperr:[], filterCloser:"alle",
   lastSeen:Number(LS.get("sb_lastSeen")||0),
   ready:false, offline:false, firstFeed:true, neuerZugang:null, adminKal:null, teamSig:""
@@ -890,6 +921,23 @@ function sbStore(){
     },
     delAppt:function(id){
       return sb.from("termine").delete().eq("id",id).then(function(r){ if(r.error) throw r.error; jetzt(); });
+    },
+    anfragenLaden:function(){
+      return sb.from("anfragen").select("*").eq("status","offen").then(function(r){
+        if(r.error) return [];
+        return r.data||[];
+      });
+    },
+    anfrageEntscheiden:function(id,status){
+      return sb.from("anfragen").update({status:status}).eq("id",id).then(function(r){
+        if(r.error) throw r.error; jetzt();
+      });
+    },
+    einladungAnlegen:function(kalId){
+      var code=""; var zeichen="abcdefghijkmnpqrstuvwxyz23456789";
+      for(var i=0;i<10;i++) code+=zeichen.charAt(Math.floor(Math.random()*zeichen.length));
+      return sb.from("einladungen").insert({ code:code, kalender_id:kalId, von_person:S.me.id })
+        .then(function(r){ if(r.error) throw r.error; return code; });
     },
     saveMember:function(m){
       var daten={ name:m.name, rolle:m.rolle, kalender_id:m.kalender_id||null };
@@ -1261,7 +1309,10 @@ function fahrtPruefung(datum,closer,vonMin,dauer,plzNeu,ortNeu,ausserId){
 }
 
 /* ---------------- boot ---------------- */
-function start(){ themaAnwenden(); renderGate(); wire(); claudeDb(); PUSH.start(); }
+function start(){
+  themaAnwenden(); einladungAusLink(); renderGate(); wire(); claudeDb(); PUSH.start();
+  if(EINLADUNG) zeigeNeu(true);
+}
 
 function claudeDb(){
   if(!sb){ setDiag("Supabase konnte nicht geladen werden. Internetverbindung prüfen.",true); return; }
@@ -1281,17 +1332,127 @@ function nachAnmeldung(user){
       setDiag("Dieser Zugang ist noch keinem Kalender zugeordnet. Melde dich beim Admin.",true);
       return;
     }
+    // Setter ohne Kalender wartet auf die Zusage seines Closers
+    if(r.data.rolle==="setter" && !r.data.kalender_id){
+      S.wartet={ id:user.id, name:r.data.name };
+      return warteBildschirm();
+    }
     return sb.from("kalender").select("*").then(function(k){
       KAL={}; KAL_ID={};
       (k.data||[]).forEach(function(x){ KAL[x.id]=x; KAL_ID[x.name]=x.id; });
       var m=personAusDb(r.data);
       m.benutzer=benutzerAus(user.email);
-      S.me=m;
+      S.me=m; S.wartet=null;
+      stoppUhr();
       enterApp();
       if(store&&store.onTeam) setTimeout(function(){ render(); },500);
     });
   });
 }
+
+/* Zwischenschritt für Setter ohne Kalender:
+   Closer wählen, auf die Zusage warten, oder es bei jemand anderem versuchen. */
+var warteTimer=null;
+
+function warteBildschirm(){
+  $("app").hidden=true; $("untenleiste").hidden=true; $("gate").hidden=false;
+  $("loginBox").hidden=true; $("neuBox").hidden=true;
+
+  return Promise.all([
+    sb.from("anfragen").select("*").eq("person_id",S.wartet.id).order("angelegt",{ascending:false}).limit(1),
+    sb.rpc("kalender_liste")
+  ]).then(function(res){
+    var anfrage=((res[0].data)||[])[0] || null;
+    var closer = (res[1].data)||[];
+    var name={}; closer.forEach(function(c){ name[c.id]=c.name; });
+    var stand = anfrage ? anfrage.status : "keine";
+    if(stand==="zurueckgezogen") stand="keine";
+
+    var alt=$("warteBox"); if(alt) alt.remove();
+    var el=document.createElement("div"); el.id="warteBox";
+
+    if(stand==="offen"){
+      $("gateTitel").textContent="Fast fertig";
+      $("gateText").textContent="Deine Anfrage ist unterwegs.";
+      el.innerHTML='<div class="warnbox" style="margin-bottom:12px"><b>'+esc(name[anfrage.kalender_id]||"Dein Closer")+' muss noch zustimmen</b><br>'+
+          'Sobald er annimmt, geht es hier von allein weiter. Ein kurzer Anruf beschleunigt das meistens.</div>'+
+        '<button class="btn" id="w_weg" style="width:100%;margin-bottom:8px">Anfrage zurücknehmen</button>';
+    } else {
+      var abgelehnt = (stand==="abgelehnt");
+      $("gateTitel").textContent = abgelehnt ? "Anfrage abgelehnt" : "Für wen setzt du Termine?";
+      $("gateText").textContent = abgelehnt
+        ? ((name[anfrage.kalender_id]||"Der Closer")+" hat die Anfrage nicht angenommen. Du kannst es bei jemand anderem versuchen.")
+        : "Wähl den Closer, in dessen Kalender du Termine einträgst.";
+      el.innerHTML = closer.length
+        ? '<div class="field" style="margin-bottom:12px"><label for="w_closer">Closer</label>'+
+            '<select id="w_closer"></select></div>'+
+          '<button class="btn primary" id="w_neu" style="width:100%;margin-bottom:8px">Anfrage senden</button>'
+        : '<div class="warnbox" style="margin-bottom:12px">Es gibt noch keinen Closer, dem du dich anschließen könntest. Melde dich bei dem, der dich geschickt hat.</div>';
+    }
+    el.innerHTML += '<button class="btn ghost" id="w_ab" style="width:100%">Abmelden</button>'+
+                    '<p class="err" id="w_err" hidden style="margin-top:10px"></p>';
+    document.querySelector(".gate-box").insertBefore(el, $("gateHint"));
+
+    $("w_ab").onclick=function(){
+      stoppUhr();
+      sb.auth.signOut({scope:"local"}).then(function(){
+        S.wartet=null;
+        var w=$("warteBox"); if(w) w.remove();
+        renderGate();
+      });
+    };
+
+    var weg=$("w_weg");
+    if(weg) weg.onclick=function(){
+      weg.disabled=true;
+      sb.from("anfragen").update({status:"zurueckgezogen"}).eq("id",anfrage.id).then(function(){
+        warteBildschirm();
+      }).catch(function(e){ weg.disabled=false; zeigFehler(e); });
+    };
+
+    var sel=$("w_closer");
+    if(sel){
+      var ausser = anfrage ? anfrage.kalender_id : null;
+      var wahl = closer.filter(function(c){ return c.id!==ausser; });
+      sel.innerHTML='<option value="">Bitte auswählen</option>'+
+        wahl.map(function(c){ return '<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>'; }).join("");
+      $("w_neu").onclick=function(){
+        var ziel=sel.value, b=$("w_neu");
+        if(!ziel){ zeigFehler(new Error("Wähl einen Closer aus der Liste.")); return; }
+        b.disabled=true;
+        sb.from("anfragen").insert({ person_id:S.wartet.id, kalender_id:ziel }).then(function(r){
+          if(r.error) throw r.error;
+          warteBildschirm();
+        }).catch(function(e){ b.disabled=false; zeigFehler(e); });
+      };
+    }
+
+    starteUhr();
+    setDiag("");
+
+    function zeigFehler(e){
+      var f=$("w_err"); if(!f) return;
+      f.hidden=false; f.textContent=meldung(e);
+    }
+  });
+}
+
+function starteUhr(){
+  if(warteTimer) return;
+  warteTimer=setInterval(function(){
+    if(!S.wartet){ stoppUhr(); return; }
+    sb.from("personen").select("kalender_id").eq("id",S.wartet.id).maybeSingle().then(function(p){
+      if(p.data && p.data.kalender_id){
+        stoppUhr();
+        var w=$("warteBox"); if(w) w.remove();
+        sb.auth.getUser().then(function(u){
+          nachAnmeldung((u.data&&u.data.user)||{ id:S.wartet.id });
+        });
+      }
+    });
+  },8000);
+}
+function stoppUhr(){ if(warteTimer){ clearInterval(warteTimer); warteTimer=null; } }
 
 function connect(){
   S.ready=true;
@@ -1333,14 +1494,16 @@ function connect(){
 
   renderBanner();
 
-}
-
-function terminAusLink(){
-  var m=/#termin=([A-Za-z0-9-]+)/.exec(location.hash||"");
-  if(!m) return;
-  history.replaceState(null,"",location.pathname+location.search);
-  var id=m[1];
-  setTimeout(function(){ if(S.appts.filter(function(a){ return a.id===id; })[0]) openAppt(id); },900);
+  // Offene Anfragen regelmäßig prüfen, nur für Closer und Admin
+  setInterval(function(){
+    if(!S.me || (S.me.rolle!=="closer" && !istAdmin())) return;
+    if(!store || !store.anfragenLaden) return;
+    store.anfragenLaden().then(function(liste){
+      var vorher=(S.anfragen||[]).length;
+      S.anfragen=liste;
+      if(liste.length!==vorher) renderBanner();
+    });
+  },20000);
 }
 
 function enterApp(){
@@ -1356,9 +1519,28 @@ function enterApp(){
   renderFilter(); render(); renderBell(); renderBanner(); terminAusLink();
 }
 
+function terminAusLink(){
+  var m=/#termin=([A-Za-z0-9-]+)/.exec(location.hash||"");
+  if(!m) return;
+  history.replaceState(null,"",location.pathname+location.search);
+  var id=m[1];
+  setTimeout(function(){ if(S.appts.filter(function(a){ return a.id===id; })[0]) openAppt(id); },900);
+}
+
 function renderBanner(){
   var b=$("pushBanner"); if(!b) return;
   var t=$("pushBannerText");
+  // Offene Anfragen haben Vorrang
+  if(t && S.anfragen && S.anfragen.length){
+    b.hidden=false;
+    var n=S.anfragen.length;
+    t.innerHTML='<b>'+n+(n===1?' Anfrage wartet':' Anfragen warten')+'.</b> '+
+      'Jemand möchte für dich Termine eintragen. '+
+      '<button class="btn ghost" id="anfrageJetzt" style="padding:2px 8px">Ansehen</button>';
+    var aj=$("anfrageJetzt");
+    if(aj) aj.onclick=function(){ openWho(); };
+    return;
+  }
   if(t&&!S.offline){
     var st=PUSH.status();
     if(st==="granted"||st==="geht nicht"||S.bannerZu){ b.hidden=true; }
@@ -1385,7 +1567,6 @@ function renderBanner(){
   }
 }
 
-/* ---------------- Team-Liste ---------------- */
 function askDelete(root,id){
   var m=S.team.filter(function(x){ return x.id===id; })[0]; if(!m) return;
   var row=root.querySelector('[data-row="'+id+'"]'); if(!row) return;
@@ -1407,16 +1588,86 @@ function askDelete(root,id){
     }).catch(function(){ toast("Entfernen hat nicht geklappt."); });
   };
 }
+
 function redrawTeamLists(){
   if(document.querySelector('[data-overlay="who"]')) openWho();
 }
 
-/* ---------------- Anmeldung ---------------- */
+/* ---------------- Selbstanlage als Setter ---------------- */
+var EINLADUNG = null;      // Code aus dem geteilten Link
+
+function einladungAusLink(){
+  var m=/[#?&]e=([A-Za-z0-9_-]{6,40})/.exec(location.hash||"") ||
+        /[#?&]e=([A-Za-z0-9_-]{6,40})/.exec(location.search||"");
+  if(!m) return;
+  EINLADUNG=m[1];
+  try{ history.replaceState(null,"",location.pathname); }catch(e){}
+}
+
+function zeigeNeu(an){
+  $("loginBox").hidden=an;
+  $("neuBox").hidden=!an;
+  $("gateTitel").textContent = an ? "Als Setter anmelden" : "Anmelden";
+  $("gateText").textContent = an
+    ? "Leg dir einen Zugang an. Danach sagst du, für wen du Termine setzt."
+    : "Melde dich mit deinem Benutzernamen und Passwort an.";
+  if(an && EINLADUNG){
+    $("nu_einladung").hidden=false;
+    $("nu_einladung").innerHTML='<b>Du wurdest eingeladen.</b><br>Nach dem Anlegen bist du sofort im Kalender, ohne Warten.';
+  }
+}
+
+function setterAnlegen(){
+  var name=$("nu_name").value.trim();
+  var u=benutzerNorm($("nu_user").value);
+  var pw=$("nu_pw").value;
+  var err=$("nu_err");
+  err.hidden=true;
+  if(!name) { err.hidden=false; err.textContent="Wie heißt du?"; return; }
+  if(u.length<3){ err.hidden=false; err.textContent="Der Benutzername braucht mindestens drei Zeichen."; return; }
+  if(pw.length<6){ err.hidden=false; err.textContent="Das Passwort braucht mindestens sechs Zeichen."; return; }
+
+  var kb=$("lg_bleiben");
+  bleibenSetzen(kb?kb.checked:true);
+  clientWechseln(kb?kb.checked:true);
+
+  $("nu_go").disabled=true;
+  sb.auth.signUp({ email:mailVon(u), password:pw }).then(function(r){
+    if(r.error) throw r.error;
+    var id=r.data.user && r.data.user.id;
+    if(!id) throw new Error("Der Zugang wurde nicht angelegt.");
+    return sb.from("personen").insert({ id:id, name:name, rolle:"setter", kalender_id:null })
+      .then(function(p2){
+        if(p2.error) throw p2.error;
+        if(EINLADUNG){
+          return sb.rpc("einladung_einloesen",{ code_ein:EINLADUNG }).then(function(e){
+            if(e.error) throw e.error;
+            if(e.data!=="ok") throw new Error("Diese Einladung gilt nicht mehr ("+e.data+"). Frag deinen Closer nach einer neuen.");
+            EINLADUNG=null;
+          });
+        }
+      }).then(function(){ return id; });
+  }).then(function(id){
+    $("nu_go").disabled=false;
+    $("nu_pw").value="";
+    return sb.auth.getUser().then(function(u2){
+      nachAnmeldung((u2.data&&u2.data.user)||{ id:id });
+    });
+  }).catch(function(e){
+    $("nu_go").disabled=false;
+    err.hidden=false; err.textContent=meldung(e);
+  });
+}
+
 function renderGate(){
+  if(S.wartet) return;                       // Setter wartet auf seinen Closer
   var kb=$("lg_bleiben"); if(kb) kb.checked=!FENSTER_MODUS;
-  $("gateTitel").textContent = "Anmelden";
-  $("gateText").textContent = "Melde dich mit deinem Benutzernamen und Passwort an.";
-  $("loginBox").hidden = false;
+  var neuOffen = $("neuBox") && !$("neuBox").hidden;
+  if(!neuOffen){
+    $("gateTitel").textContent = "Anmelden";
+    $("gateText").textContent = "Melde dich mit deinem Benutzernamen und Passwort an.";
+    $("loginBox").hidden = false;
+  }
 }
 
 function anmelden(){
@@ -2535,6 +2786,90 @@ function zeichneThema(){
   });
 }
 
+function meinKalenderId(){
+  if(S.me && S.me.kalender_id) return S.me.kalender_id;
+  if(istAdmin() && S.adminKal) return kalIdVon(S.adminKal);
+  return null;
+}
+
+function zeichneAnfragen(){
+  var box=$("anfrageBox"); if(!box||!store||!store.anfragenLaden) return;
+  store.anfragenLaden().then(function(liste){
+    S.anfragen=liste;
+    if(!liste.length){ box.innerHTML=""; return; }
+    box.innerHTML='<div class="sec-label" style="margin-bottom:6px">Offene Anfragen</div>'+
+      '<div class="people" style="margin-bottom:14px">'+liste.map(function(a){
+        var wer=(S.team.filter(function(m){ return m.id===a.person_id; })[0]||{}).name || a.name_fallback || "Neuer Setter";
+        return '<div class="person-row" data-anfrage="'+esc(a.id)+'">'+
+          '<span class="person" style="cursor:default"><span class="avatar">'+esc(initials(wer))+'</span>'+
+          '<b>'+esc(wer)+'</b><span class="r">möchte für '+esc(kalNameVon(a.kalender_id)||"dich")+' setzen</span></span>'+
+          '<button class="btn primary" data-ja="'+esc(a.id)+'" style="padding:5px 12px">Annehmen</button>'+
+          '<button class="del" data-nein="'+esc(a.id)+'" title="Ablehnen">✕</button>'+
+        '</div>';
+      }).join("")+'</div>';
+
+    Array.prototype.forEach.call(box.querySelectorAll("[data-ja]"),function(b){
+      b.onclick=function(){
+        b.disabled=true;
+        store.anfrageEntscheiden(b.dataset.ja,"angenommen").then(function(){
+          toast("Angenommen. Der Setter ist jetzt in deinem Kalender.");
+          logEvent("neu","Ein Setter wurde freigeschaltet");
+          openWho();
+        }).catch(function(e){ b.disabled=false; toast(meldung(e)); });
+      };
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-nein]"),function(b){
+      b.onclick=function(){
+        b.disabled=true;
+        store.anfrageEntscheiden(b.dataset.nein,"abgelehnt").then(function(){
+          toast("Abgelehnt."); openWho();
+        }).catch(function(e){ b.disabled=false; toast(meldung(e)); });
+      };
+    });
+  });
+}
+
+function einladungsLink(code){
+  return location.origin + location.pathname + "#e=" + code;
+}
+
+function zeichneTeilen(){
+  var box=$("teilenBox"); if(!box) return;
+  var kid=meinKalenderId();
+  if(!kid){
+    box.innerHTML='<p class="hint">Wähl oben einen Kalender, dann kannst du dafür eine Einladung verschicken.</p>';
+    return;
+  }
+  box.innerHTML='<div class="sec-label" style="margin-bottom:6px">Setter einladen</div>'+
+    '<p class="hint" style="margin-bottom:8px">Link erzeugen und per WhatsApp schicken. Wer ihn öffnet, legt sich an und ist sofort in deinem Kalender, ohne dass du noch etwas bestätigen musst.</p>'+
+    '<button class="btn" id="einlGo">Einladungslink erstellen</button>'+
+    '<div id="einlOut" style="margin-top:10px"></div>';
+
+  $("einlGo").onclick=function(){
+    var b=$("einlGo"); b.disabled=true;
+    store.einladungAnlegen(kid).then(function(code){
+      b.disabled=false;
+      var link=einladungsLink(code);
+      $("einlOut").innerHTML='<div class="warnbox"><b>Link ist fertig, gilt 14 Tage</b><br>'+
+        '<span class="mono" style="word-break:break-all;font-size:12px">'+esc(link)+'</span><br>'+
+        '<div class="callrow" style="margin-top:10px">'+
+          '<a class="haupt" id="einlWa" href="#">💬 Per WhatsApp</a>'+
+          '<a id="einlKopie" href="#">📋 Kopieren</a>'+
+        '</div></div>';
+      var text="Hier ist dein Zugang zum Setterboard. Link öffnen, Namen und Passwort wählen, fertig: "+link;
+      $("einlWa").onclick=function(e){
+        e.preventDefault();
+        window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank","noopener");
+      };
+      $("einlKopie").onclick=function(e){
+        e.preventDefault();
+        if(navigator.clipboard) navigator.clipboard.writeText(link).then(function(){ toast("Link kopiert."); });
+        else toast("Link oben markieren und kopieren.");
+      };
+    }).catch(function(e){ b.disabled=false; toast(meldung(e)); });
+  };
+}
+
 function zeichnePush(){
   var box=$("pushBox"); if(!box) return;
   var st=PUSH.status();
@@ -2565,7 +2900,7 @@ function zeichnePush(){
     p.then(function(){
       b.disabled=false;
       toast(an?"Dieses Gerät bekommt keine Mitteilungen mehr.":"Mitteilungen sind an.");
-      zeichnePush(); zeichneThema(); renderBanner();
+      zeichnePush(); zeichneThema(); zeichneAnfragen(); zeichneTeilen(); renderBanner();
     }).catch(function(err){
       b.disabled=false; e.hidden=false;
       e.textContent=(err&&err.message)||"Hat nicht geklappt.";
@@ -2668,6 +3003,10 @@ function openWho(){
       '<p class="hint">Du trägst Termine im Kalender von '+esc(S.me.gehoertZu||"deinem Closer")+' ein. '+
       'Andere Kalender sind für dich nicht sichtbar.</p>';
   }
+  if(S.me.rolle==="closer"||istAdmin()){
+    body='<div id="anfrageBox"></div>'+
+      '<div id="teilenBox" style="margin-bottom:14px"></div>'+body;
+  }
   body+='<hr class="sep">'+
     '<div><div class="sec-label" style="margin-bottom:6px">Darstellung</div>'+
       '<div class="modus" id="themaBar">'+
@@ -2690,7 +3029,7 @@ function openWho(){
   var okBtn=$("zugangOk");
   if(okBtn) okBtn.onclick=function(){ S.neuerZugang=null; openWho(); };
 
-  zeichnePush(); zeichneThema();
+  zeichnePush(); zeichneThema(); zeichneAnfragen(); zeichneTeilen();
 
   if(istAdmin()){
     var rollenFelder=function(){
@@ -3003,6 +3342,11 @@ function schliesseSuche(){
 /* ---------------- wiring ---------------- */
 function wire(){
   $("lg_go").onclick=anmelden;
+  $("zeigNeu").onclick=function(){ zeigeNeu(true); };
+  $("zeigLogin").onclick=function(){ zeigeNeu(false); };
+  $("nu_go").onclick=setterAnlegen;
+  $("nu_user").onblur=function(){ this.value=benutzerNorm(this.value); };
+  $("nu_pw").onkeydown=function(e){ if(e.key==="Enter") setterAnlegen(); };
   $("lg_pw").onkeydown=function(e){ if(e.key==="Enter") anmelden(); };
   $("lg_user").onkeydown=function(e){ if(e.key==="Enter") $("lg_pw").focus(); };
 
