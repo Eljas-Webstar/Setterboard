@@ -40,6 +40,38 @@ Benutzername wird intern zu `benutzer@setterboard.local`.
 - **Edge Function heißt in der Adresse `pusch-senden`**, angezeigt wird `push-senden`.
   Der Cronjob muss auf die Adresse zeigen, sonst 404.
 - **Verify JWT ist bei der Funktion aus**, der Zeitplan ruft ohne Schlüssel auf.
+- **VAPID_MAIL muss eine echte Domain haben.** Mit `mailto:info@setterboard.local`
+  antwortet Apple mit `403 BadJwtToken` und nichts kommt an. Jetzt steht
+  `mailto:tempjo91@gmail.com` in den Secrets.
+- **Die Sendefunktion verschluckte Fehler.** Seit Version 3 schreibt sie
+  `zugestellt` und `fehler` in `push_warteschlange` und gibt einen Bericht zurück.
+  Aufruf mit `?pruefen=1` zeigt, ob die Secrets ankommen.
+- **Geräte hängen am Kalender, nicht am Menschen.** Wer an Kalender A hängt,
+  bekommt nichts aus Kalender B. Bei "kommt nichts an" immer zuerst
+  `push_geraete.kalender_id` gegen `push_warteschlange.kalender_id` prüfen.
+
+## Eigener Supabase-Zugang
+
+Token liegt in `~/.config/setterboard/.env` (`SUPABASE_PAT`, `SUPABASE_REF`).
+Lesen per Management API:
+
+```bash
+set -a; . ~/.config/setterboard/.env; set +a
+curl -s -X POST "https://api.supabase.com/v1/projects/$SUPABASE_REF/database/query" \
+  -H "Authorization: Bearer $SUPABASE_PAT" -H "Content-Type: application/json" \
+  -d '{"query":"select ..."}'
+```
+
+Funktion neu deployen:
+
+```bash
+curl -s -X POST "https://api.supabase.com/v1/projects/$SUPABASE_REF/functions/deploy?slug=pusch-senden" \
+  -H "Authorization: Bearer $SUPABASE_PAT" \
+  -F 'metadata={"name":"push-senden","entrypoint_path":"source/index.ts","verify_jwt":false};type=application/json' \
+  -F "file=@setterboard-funktion/index.ts;filename=source/index.ts;type=application/typescript"
+```
+
+Schreibende SQL-Befehle blockt der Auto-Modus. Die führt Eljakim im SQL Editor aus.
 - **Klassennamen prüfen, bevor neue vergeben werden.** `.marke` gab es doppelt,
   die Überschrift bekam den Chip-Hintergrund.
 - **Beim Ausschneiden großer Blöcke mit Python-Indexen** kann ein ganzer Abschnitt
