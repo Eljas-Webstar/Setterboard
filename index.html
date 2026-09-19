@@ -380,6 +380,13 @@ body.panel-offen{overflow:hidden;position:relative;width:100%}
 .check input{width:auto;margin-top:2px;flex:0 0 auto}
 .slots{display:flex;flex-wrap:wrap;gap:6px}
 /* Terminvorschlaege nach Fahrtzeit */
+.neuerungen{border:1px solid var(--accent);background:var(--accent-soft);border-radius:var(--radius);
+  padding:12px 14px;margin-bottom:14px}
+.neuerungen .n-kopf{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.neuerungen .n-kopf b{font-size:14px;color:var(--accent-ink)}
+.neuerungen .n-kopf span{font-size:11px;color:var(--ink-3);margin-left:auto}
+.neuerungen ul{margin:0 0 6px 18px;padding:0}
+.neuerungen li{font-size:13.5px;line-height:1.45;margin-bottom:2px}
 .fassungsleiste{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));
   z-index:60;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--accent);
   border-radius:12px;padding:10px 12px;box-shadow:var(--shadow);max-width:calc(100% - 24px)}
@@ -726,7 +733,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-19-1557";
+var VERSION = "2026-09-19-1614";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1200,18 +1207,29 @@ function b64ZuBytes(b64){
 }
 
 /* ---------------- Auf neue Fassung prüfen ----------------
-   Auf dem Server liegt version.txt mit demselben Stand wie oben.
+   Auf dem Server liegt version.json mit Stand und Liste der Neuerungen.
    Steht dort etwas Neueres, bekommt der Nutzer eine Leiste und entscheidet selbst,
    wann er neu lädt. Automatisch neu laden würde Eingaben im Formular zerstören. */
 var NEUE_FASSUNG = null;
+var NEUERUNGEN = null;      // { stand, punkte:[] } der Fassung, die gerade läuft
+
 function versionPruefen(){
-  fetch("version.txt?t="+Date.now(),{cache:"no-store"}).then(function(r){
-    return r.ok ? r.text() : null;
-  }).then(function(t){
-    if(!t) return;
-    t=t.trim();
-    if(t && t!==VERSION && t!==NEUE_FASSUNG){ NEUE_FASSUNG=t; zeigeFassungsleiste(); }
+  fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(function(r){
+    return r.ok ? r.json() : null;
+  }).then(function(d){
+    if(!d||!d.stand) return;
+    // Die Liste gehört zur Fassung auf dem Server. Läuft sie schon hier, ist sie unsere.
+    if(d.stand===VERSION){ NEUERUNGEN=d; renderBell(); return; }
+    if(d.stand!==NEUE_FASSUNG){ NEUE_FASSUNG=d.stand; zeigeFassungsleiste(); }
   }).catch(function(){});
+}
+
+/* Wurde die Liste dieser Fassung schon gelesen? */
+function neuerungenGelesen(){
+  try{ return localStorage.getItem("sb_neu_gesehen")===VERSION; }catch(e){ return true; }
+}
+function neuerungenMerken(){
+  try{ localStorage.setItem("sb_neu_gesehen",VERSION); }catch(e){}
 }
 function zeigeFassungsleiste(){
   if($("fassungsleiste")) return;
@@ -3202,11 +3220,11 @@ function zeichnePush(){
   if(fb) fb.onclick=function(){
     var h=$("fassungHint");
     fb.disabled=true; h.textContent="Schaue nach …";
-    fetch("version.txt?t="+Date.now(),{cache:"no-store"}).then(function(r){
-      return r.ok?r.text():null;
-    }).then(function(t){
+    fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(function(r){
+      return r.ok?r.json():null;
+    }).then(function(d){
       fb.disabled=false;
-      t=(t||"").trim();
+      var t=(d&&d.stand)||"";
       if(!t){ h.textContent="Konnte nicht nachsehen. Internetverbindung prüfen."; return; }
       if(t===VERSION){ h.textContent="Alles aktuell."; h.style.color="var(--ok)"; return; }
       h.textContent="Neue Fassung vom "+t.slice(0,10)+" verfügbar.";
@@ -3350,11 +3368,11 @@ function openWho(){
   if(fb) fb.onclick=function(){
     var h=$("fassungHint");
     fb.disabled=true; h.textContent="Schaue nach …";
-    fetch("version.txt?t="+Date.now(),{cache:"no-store"}).then(function(r){
-      return r.ok?r.text():null;
-    }).then(function(t){
+    fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(function(r){
+      return r.ok?r.json():null;
+    }).then(function(d){
       fb.disabled=false;
-      t=(t||"").trim();
+      var t=(d&&d.stand)||"";
       if(!t){ h.textContent="Konnte nicht nachsehen. Internetverbindung prüfen."; return; }
       if(t===VERSION){ h.textContent="Alles aktuell."; h.style.color="var(--ok)"; return; }
       h.textContent="Neue Fassung vom "+t.slice(0,10)+" verfügbar.";
@@ -3531,8 +3549,17 @@ function renderSide(){
   };
 }
 
+function neuerungenHtml(){
+  if(!NEUERUNGEN || !NEUERUNGEN.punkte || !NEUERUNGEN.punkte.length) return "";
+  return '<div class="neuerungen">'+
+    '<div class="n-kopf"><b>Neu in dieser Fassung</b><span class="mono">Stand '+esc(NEUERUNGEN.stand.slice(0,10))+'</span></div>'+
+    '<ul>'+NEUERUNGEN.punkte.map(function(t){ return '<li>'+esc(t)+'</li>'; }).join("")+'</ul>'+
+    '<p class="hint">Wenn etwas davon bei dir nicht auftaucht, App einmal schließen und neu öffnen.</p>'+
+  '</div>';
+}
+
 function openFeed(keep){
-  var html=feedHtml(0);
+  var html=neuerungenHtml()+feedHtml(0);
   overlay("Aktivität",html,
     '<button class="btn" id="simBtn">Closer simulieren</button>'+
     '<span class="hint" style="flex:1;align-self:center">Testlauf: ein Kollege bearbeitet einen Termin.</span>',"feed");
@@ -3540,12 +3567,14 @@ function openFeed(keep){
   feedKlicks(document.querySelector('[data-overlay="feed"]'));
   if(!keep){
     S.lastSeen=Date.now(); LS.set("sb_lastSeen",String(S.lastSeen));
+    neuerungenMerken();
     setTimeout(renderBell,400);
   }
 }
 function renderBell(){
   var me=S.me?S.me.name:"";
   var n=sichtbareEvents().filter(function(e){ return e.ts>S.lastSeen&&e.by!==me; }).length;
+  if(NEUERUNGEN && NEUERUNGEN.punkte && NEUERUNGEN.punkte.length && !neuerungenGelesen()) n++;
   var c=$("bellCount");
   if(n>0){ c.hidden=false; c.textContent=n>99?"99+":String(n); } else c.hidden=true;
 }
