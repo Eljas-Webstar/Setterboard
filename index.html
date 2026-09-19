@@ -379,6 +379,20 @@ body.panel-offen{overflow:hidden;position:relative;width:100%}
 .check input:checked ~ span b{color:var(--accent)}
 .check input{width:auto;margin-top:2px;flex:0 0 auto}
 .slots{display:flex;flex-wrap:wrap;gap:6px}
+/* Terminvorschlaege nach Fahrtzeit */
+.vors{display:flex;flex-direction:column;gap:6px}
+.vorschlag{display:grid;grid-template-columns:1fr auto;column-gap:10px;row-gap:2px;width:100%;
+  min-height:48px;text-align:left;align-items:center;
+  border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 11px;cursor:pointer}
+.vorschlag:hover{border-color:var(--accent)}
+.vorschlag[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.vorschlag .vtag{grid-column:1;grid-row:1;font-family:var(--font-mono);font-size:13.5px;font-weight:600;white-space:nowrap}
+.vorschlag .vzus{grid-column:2;grid-row:1/3;font-size:12px;font-weight:600;color:var(--ink-2);white-space:nowrap;text-align:right}
+.vorschlag .vwarum{grid-column:1;grid-row:2;font-size:11.5px;color:var(--ink-3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.vorschlag.top{border-color:var(--ok)}
+.vorschlag.top .vzus{color:var(--ok)}
+.vorschlag.top{background:var(--ok-soft)}
 .kopfmarke{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .kopfmarke-name{font-family:var(--font-display);font-weight:800;font-size:23px;letter-spacing:-.01em;color:var(--accent)}
 .kopfmarke-satz{font-size:13px;color:var(--ink-3);margin-top:2px}
@@ -2550,6 +2564,8 @@ function openForm(edit){
       '<span class="hint" id="plzHint"></span></div>'+
     '<hr class="sep">'+
     '<div class="sec-label" style="margin-bottom:2px">Wann passt es dem Kunden?</div>'+
+    '<div class="field" id="vorsFeld" hidden><label>Diese Termine kosten die wenigste Fahrt</label>'+
+      '<div class="vors" id="vorsBox"></div><p class="hint" id="vorsHint"></p></div>'+
     '<div class="two">'+
       '<div class="field"><label for="f_datum">Datum</label><input type="date" id="f_datum" class="mono" value="'+esc(sel.datum)+'"></div>'+
       '<div class="field"><label for="f_zeit">Beginn</label><input type="time" id="f_zeit" class="mono" step="900" value="'+esc(a.zeit||"")+'"></div>'+
@@ -2664,6 +2680,111 @@ function openForm(edit){
     return treffer;
   }
 
+  /* --- Terminvorschlaege: welcher Slot kostet die wenigste zusaetzliche Fahrt? --- */
+  function tagesFahrtSortiert(liste){
+    return tagesFahrtMinuten(liste.slice().sort(function(x,y){
+      return zeitInMin(x.zeit)-zeitInMin(y.zeit);
+    }));
+  }
+  function besteTermine(tage,wieViele){
+    var ad=adrJetzt();
+    if(!ad.plz||!PLZ[ad.plz]) return null;              // ohne bekannte PLZ nichts behaupten
+    var dauer=+$("f_dauer").value||RULES.slotMin;
+    var minMs=Date.now()+RULES.leadHours*3600*1000;
+    var heute=new Date(); heute.setHours(0,0,0,0);
+    var kandidaten=[];
+
+    for(var tag=0; tag<tage; tag++){
+      var d=new Date(heute.getFullYear(),heute.getMonth(),heute.getDate()+tag);
+      var tagYmd=ymd(d);
+      if(d.getDay()===0) continue;                     // sonntags keine Hausbesuche
+      if(gesperrt(tagYmd,meinC)) continue;
+
+      var amTag=S.appts.filter(function(x){
+        return x.datum===tagYmd&&x.closer===meinC&&x.status!=="abgesagt"&&x.id!==a.id;
+      });
+      if(amTag.length>=RULES.maxPerDay) continue;
+      var basis=tagesFahrtSortiert(amTag)||0;
+      var bester=null;
+
+      for(var m=RULES.openHour*60; m+dauer<=(RULES.closeHour+1)*60; m+=30){
+        var ms=new Date(d.getFullYear(),d.getMonth(),d.getDate(),Math.floor(m/60),m%60).getTime();
+        if(ms<minMs) continue;                          // zu kurzfristig
+        if(konflikt(tagYmd,meinC,m,dauer)) continue;    // Zeit ist belegt
+        var fp=fahrtPruefung(tagYmd,meinC,m,dauer,ad.plz,ad.ort,a.id);
+        if(fp.eng) continue;                            // Closer kaeme zu spaet an
+
+        var mit=amTag.concat([{
+          id:"__neu__", closer:meinC, plz:ad.plz, ort:ad.ort,
+          zeit:zeitText(m), dauer:dauer, status:"geplant"
+        }]);
+        var gesamt=tagesFahrtSortiert(mit);
+        if(gesamt==null) continue;
+        var zusatz=gesamt-basis;
+        if(!bester||zusatz<bester.zusatz) bester={ datum:tagYmd, zeit:zeitText(m), zusatz:zusatz, voll:amTag.length };
+      }
+      if(bester) kandidaten.push(bester);
+    }
+
+    kandidaten.sort(function(x,y){
+      if(x.zusatz!==y.zusatz) return x.zusatz-y.zusatz; // wenig Zusatzfahrt zuerst
+      return x.datum<y.datum?-1:1;                      // bei Gleichstand der fruehere Tag
+    });
+    return kandidaten.slice(0,wieViele||3);
+  }
+
+  var vorsUhr=null, vorsSchluessel="";
+  // Rechnen erst, wenn der Setter aufhoert zu tippen. Sonst laufen bei jedem
+  // Buchstaben ein paar tausend Entfernungsrechnungen und das Handy ruckelt.
+  function vorschlaegeSpaeter(){
+    if(vorsUhr) clearTimeout(vorsUhr);
+    vorsUhr=setTimeout(function(){ drawVorschlaege(); },400);
+  }
+  function drawVorschlaege(erzwingen){
+    var feld=$("vorsFeld"), box=$("vorsBox"), hint=$("vorsHint");
+    if(!feld||!box) return;
+    var ad0=adrJetzt();
+    var schluessel=(ad0.plz||"")+"|"+(ad0.ort||"")+"|"+(+$("f_dauer").value||RULES.slotMin)+"|"+S.appts.length;
+    if(!erzwingen && schluessel===vorsSchluessel && box.innerHTML){ markiereWahl(); return; }
+    vorsSchluessel=schluessel;
+    var liste=besteTermine(14,3);
+    if(liste===null){ feld.hidden=true; box.innerHTML=""; return; }
+    feld.hidden=false;
+    if(!liste.length){
+      box.innerHTML="";
+      hint.textContent="In den nächsten zwei Wochen passt nichts, ohne dass eine Fahrt zu knapp wird. Nimm den Kalender unten.";
+      return;
+    }
+    box.innerHTML=liste.map(function(v,i){
+      var d=parseYmd(v.datum);
+      var warum = v.voll
+        ? v.voll+" Termin"+(v.voll>1?"e":"")+" an dem Tag in der Nähe"
+        : "noch kein Termin an dem Tag";
+      var an=(sel.datum===v.datum&&sel.zeit===v.zeit);
+      return '<button type="button" class="vorschlag'+(i===0?" top":"")+'" data-d="'+esc(v.datum)+'" data-t="'+esc(v.zeit)+'"'+
+        ' aria-pressed="'+an+'">'+
+        '<span class="vtag">'+esc(DOW_S[(d.getDay()+6)%7]+" "+pad(d.getDate())+"."+pad(d.getMonth()+1)+".")+' '+esc(v.zeit)+'</span>'+
+        '<span class="vwarum">'+esc(warum)+'</span>'+
+        '<span class="vzus">'+esc(v.zusatz<=5?"kaum Umweg":"rund "+minText(v.zusatz)+" mehr")+'</span>'+
+      '</button>';
+    }).join("");
+    hint.textContent="Am Telefon zwei davon anbieten statt offen zu fragen. Die Fahrzeit ist geschätzt, kein echtes Routing.";
+    Array.prototype.forEach.call(box.querySelectorAll(".vorschlag"),function(b){
+      b.onclick=function(){
+        $("f_datum").value=b.dataset.d;
+        $("f_zeit").value=b.dataset.t;
+        drawZeiten(); markiereWahl();
+      };
+    });
+    markiereWahl();
+  }
+  function markiereWahl(){
+    var box=$("vorsBox"); if(!box) return;
+    Array.prototype.forEach.call(box.querySelectorAll(".vorschlag"),function(b){
+      b.setAttribute("aria-pressed", String(sel.datum===b.dataset.d && sel.zeit===b.dataset.t));
+    });
+  }
+
   function drawZeiten(){
     sel.datum=$("f_datum").value||sel.datum;
     sel.closer=meinC;
@@ -2729,7 +2850,9 @@ function openForm(edit){
   $("f_zeit").onchange=drawZeiten;
   $("f_zeit").onblur=drawZeiten;
   $("f_dauer").onchange=drawZeiten;
-  $("f_adr").oninput=function(){ plzCheck(); drawZeiten(); };
+  $("f_adr").oninput=function(){ plzCheck(); drawZeiten(); vorschlaegeSpaeter(); };
+  $("f_dauer").addEventListener("change",function(){ drawVorschlaege(true); });
+  drawVorschlaege();
   var gewaehlt=(a.hinweise||[]).slice();
   Array.prototype.forEach.call($("hinweisBox").querySelectorAll("[data-h]"),function(b){
     b.onclick=function(){
