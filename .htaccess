@@ -1,0 +1,12 @@
+# Immer verschlüsselt ausliefern
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+# Die App selbst darf nicht im Zwischenspeicher hängen bleiben
+<FilesMatch "\.(html|webmanifest)$">
+  Header set Cache-Control "no-cache, must-revalidate"
+</FilesMatch>
+<FilesMatch "sw\.js$">
+  Header set Cache-Control "no-cache, must-revalidate"
+</FilesMatch>

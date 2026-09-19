@@ -380,6 +380,11 @@ body.panel-offen{overflow:hidden;position:relative;width:100%}
 .check input{width:auto;margin-top:2px;flex:0 0 auto}
 .slots{display:flex;flex-wrap:wrap;gap:6px}
 /* Terminvorschlaege nach Fahrtzeit */
+.fassungsleiste{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));
+  z-index:60;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--accent);
+  border-radius:12px;padding:10px 12px;box-shadow:var(--shadow);max-width:calc(100% - 24px)}
+.fassungsleiste span{font-size:13.5px;font-weight:600;color:var(--ink)}
+.fassungsleiste .btn{padding:7px 12px;font-size:13px}
 .vors{display:flex;flex-direction:column;gap:6px}
 .vorschlag{display:grid;grid-template-columns:1fr auto;column-gap:10px;row-gap:2px;width:100%;
   min-height:48px;text-align:left;align-items:center;
@@ -721,6 +726,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
+var VERSION = "2026-09-19-1557";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1193,6 +1199,48 @@ function b64ZuBytes(b64){
   return out;
 }
 
+/* ---------------- Auf neue Fassung prüfen ----------------
+   Auf dem Server liegt version.txt mit demselben Stand wie oben.
+   Steht dort etwas Neueres, bekommt der Nutzer eine Leiste und entscheidet selbst,
+   wann er neu lädt. Automatisch neu laden würde Eingaben im Formular zerstören. */
+var NEUE_FASSUNG = null;
+function versionPruefen(){
+  fetch("version.txt?t="+Date.now(),{cache:"no-store"}).then(function(r){
+    return r.ok ? r.text() : null;
+  }).then(function(t){
+    if(!t) return;
+    t=t.trim();
+    if(t && t!==VERSION && t!==NEUE_FASSUNG){ NEUE_FASSUNG=t; zeigeFassungsleiste(); }
+  }).catch(function(){});
+}
+function zeigeFassungsleiste(){
+  if($("fassungsleiste")) return;
+  var b=document.createElement("div");
+  b.id="fassungsleiste";
+  b.className="fassungsleiste";
+  b.innerHTML='<span>Eine neue Fassung ist da.</span>'+
+    '<button class="btn primary" id="fassungLaden">Jetzt laden</button>'+
+    '<button class="btn ghost" id="fassungSpaeter">Später</button>';
+  document.body.appendChild(b);
+  $("fassungLaden").onclick=function(){ neuLaden(); };
+  $("fassungSpaeter").onclick=function(){ b.remove(); };
+}
+function neuLaden(){
+  // Hintergrunddienst und Zwischenspeicher mit erneuern, sonst bleibt die alte Fassung hängen
+  var fertig=function(){ location.reload(); };
+  try{
+    if("caches" in window){
+      caches.keys().then(function(k){ return Promise.all(k.map(function(n){ return caches.delete(n); })); })
+        .then(function(){
+          if(navigator.serviceWorker && navigator.serviceWorker.getRegistration)
+            return navigator.serviceWorker.getRegistration().then(function(r){ return r && r.update(); });
+        }).then(fertig).catch(fertig);
+      return;
+    }
+  }catch(e){}
+  fertig();
+}
+
 function setDiag(t,bad){
   var g=$("gateHint"); if(g) g.textContent=t;
   var b=$("pushBanner");
@@ -1398,6 +1446,9 @@ function fahrtPruefung(datum,closer,vonMin,dauer,plzNeu,ortNeu,ausserId){
 /* ---------------- boot ---------------- */
 function start(){
   themaAnwenden(); einladungAusLink(); renderGate(); wire(); claudeDb(); PUSH.start();
+  versionPruefen();
+  setInterval(versionPruefen,600000);
+  document.addEventListener("visibilitychange",function(){ if(!document.hidden) versionPruefen(); });
   if(EINLADUNG) zeigeNeu(true);
 }
 
@@ -3145,7 +3196,24 @@ function zeichnePush(){
     p.then(function(){
       b.disabled=false;
       toast(an?"Dieses Gerät bekommt keine Mitteilungen mehr.":"Mitteilungen sind an.");
-      zeichnePush(); zeichneThema(); zeichneAnfragen(); zeichneTeilen(); renderBanner();
+      zeichnePush(); zeichneThema(); zeichneAnfragen(); zeichneTeilen();
+
+  var fb=$("fassungBtn");
+  if(fb) fb.onclick=function(){
+    var h=$("fassungHint");
+    fb.disabled=true; h.textContent="Schaue nach …";
+    fetch("version.txt?t="+Date.now(),{cache:"no-store"}).then(function(r){
+      return r.ok?r.text():null;
+    }).then(function(t){
+      fb.disabled=false;
+      t=(t||"").trim();
+      if(!t){ h.textContent="Konnte nicht nachsehen. Internetverbindung prüfen."; return; }
+      if(t===VERSION){ h.textContent="Alles aktuell."; h.style.color="var(--ok)"; return; }
+      h.textContent="Neue Fassung vom "+t.slice(0,10)+" verfügbar.";
+      h.style.color="var(--warn)";
+      NEUE_FASSUNG=t; zeigeFassungsleiste();
+    }).catch(function(){ fb.disabled=false; h.textContent="Konnte nicht nachsehen."; });
+  }; renderBanner();
     }).catch(function(err){
       b.disabled=false; e.hidden=false;
       e.textContent=(err&&err.message)||"Hat nicht geklappt.";
@@ -3249,6 +3317,12 @@ function openWho(){
       '<div id="teilenBox" style="margin-bottom:14px"></div>'+body;
   }
   body+='<hr class="sep">'+
+    '<div><div class="sec-label" style="margin-bottom:6px">Fassung</div>'+
+      '<p class="hint" style="margin-bottom:8px">Stand '+esc(VERSION.slice(0,10))+'</p>'+
+      '<button class="btn" id="fassungBtn">Auf neue Fassung prüfen</button>'+
+      '<p class="hint" id="fassungHint" style="margin-top:6px"></p>'+
+    '</div>'+
+    '<hr class="sep">'+
     '<div><div class="sec-label" style="margin-bottom:6px">Darstellung</div>'+
       '<div class="modus" id="themaBar">'+
         '<button data-t="hell">Hell</button>'+
@@ -3271,6 +3345,23 @@ function openWho(){
   if(okBtn) okBtn.onclick=function(){ S.neuerZugang=null; openWho(); };
 
   zeichnePush(); zeichneThema(); zeichneAnfragen(); zeichneTeilen();
+
+  var fb=$("fassungBtn");
+  if(fb) fb.onclick=function(){
+    var h=$("fassungHint");
+    fb.disabled=true; h.textContent="Schaue nach …";
+    fetch("version.txt?t="+Date.now(),{cache:"no-store"}).then(function(r){
+      return r.ok?r.text():null;
+    }).then(function(t){
+      fb.disabled=false;
+      t=(t||"").trim();
+      if(!t){ h.textContent="Konnte nicht nachsehen. Internetverbindung prüfen."; return; }
+      if(t===VERSION){ h.textContent="Alles aktuell."; h.style.color="var(--ok)"; return; }
+      h.textContent="Neue Fassung vom "+t.slice(0,10)+" verfügbar.";
+      h.style.color="var(--warn)";
+      NEUE_FASSUNG=t; zeigeFassungsleiste();
+    }).catch(function(){ fb.disabled=false; h.textContent="Konnte nicht nachsehen."; });
+  };
 
   if(istAdmin()){
     var rollenFelder=function(){
