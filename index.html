@@ -49,8 +49,8 @@
   --paper:#000000;
   --surface:#0A0A0B;
   --surface-2:#141417;
-  --line:#242428;
-  --line-soft:#1A1A1D;
+  --line:#1E1E22;
+  --line-soft:#151518;
   --ink:#FFFFFF;
   --ink-2:#C8C8CE;
   --ink-3:#8B8B93;
@@ -413,6 +413,7 @@ body.panel-offen{overflow:hidden;position:relative;width:100%}
 .kopfmarke{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .kopfmarke-name{font-family:var(--font-display);font-weight:800;font-size:23px;letter-spacing:-.01em;color:var(--accent)}
 .kopfmarke-satz{font-size:13px;color:var(--ink-3);margin-top:2px}
+.kalenderTitel{font-family:var(--font-display);font-size:19px;font-weight:700;margin-bottom:10px;color:var(--ink)}
 .kalreihe{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
 .kalkachel{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);
   border-radius:var(--radius);padding:10px 14px 10px 10px;cursor:pointer;text-align:left;min-width:190px}
@@ -601,6 +602,12 @@ main{padding-bottom:86px}
 }
 @media (min-width:900px){ .week{display:none!important} }
 .tagkopf{display:none}
+@media (max-width:640px){
+  /* Auf dem Handy liegen die Kalender als volle Zeilen untereinander */
+  .kalreihe{flex-direction:column;gap:8px}
+  .kalkachel{width:100%;min-width:0;padding:14px}
+  .kalenderTitel{font-size:17px}
+}
 @media (max-width:900px){
   .week{grid-template-columns:1fr;gap:8px}
   .day{min-height:0}
@@ -641,6 +648,7 @@ main{padding-bottom:86px}
         <span>📲</span>
         <div id="pushBannerText"></div>
       </div>
+      <h2 class="kalenderTitel" id="kalenderTitel"></h2>
       <div class="weekbar">
         <div class="modus" id="modusBar">
           <button data-m="tag" aria-pressed="false">Tag</button>
@@ -740,7 +748,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-20-1341";
+var VERSION = "2026-09-20-1350";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -2099,6 +2107,8 @@ function renderWeek(){
     $("weekRange").textContent=deDate(start)+" bis "+deDate(addDays(start,5));
   }
   $("weekStart").textContent="";
+  var wessen = istAdmin() ? (S.adminKal || null) : meinCloser();
+  $("kalenderTitel").textContent = wessen ? ("Kalender von "+wessen) : "Alle Kalender";
   var amHeute = (m==="tag") ? (S.tag===heuteYmd)
     : (m==="woche") ? (ymd(S.weekStart)<=heuteYmd && heuteYmd<=ymd(addDays(S.weekStart,6)))
     : (monatsAnker().getMonth()===new Date().getMonth() && monatsAnker().getFullYear()===new Date().getFullYear());
