@@ -391,11 +391,11 @@ body.panel-offen{overflow:hidden;position:relative;width:100%}
 .neuerungen .n-kopf span{font-size:11px;color:var(--ink-3);margin-left:auto}
 .neuerungen ul{margin:0 0 6px 18px;padding:0}
 .neuerungen li{font-size:13.5px;line-height:1.45;margin-bottom:2px}
-.fassungsleiste{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));
+.fassungsleiste{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));
   z-index:60;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--accent);
-  border-radius:12px;padding:10px 12px;box-shadow:var(--shadow);max-width:calc(100% - 24px)}
-.fassungsleiste span{font-size:13.5px;font-weight:600;color:var(--ink)}
-.fassungsleiste .btn{padding:7px 12px;font-size:13px}
+  border-radius:12px;padding:10px 12px;box-shadow:var(--shadow);max-width:520px;margin:0 auto}
+.fassungsleiste span{font-size:13.5px;font-weight:600;color:var(--ink);flex:1 1 auto}
+.fassungsleiste .btn{padding:9px 14px;font-size:13px;white-space:nowrap;flex:0 0 auto}
 .vors{display:flex;flex-direction:column;gap:6px}
 .vorschlag{display:grid;grid-template-columns:1fr auto;column-gap:10px;row-gap:2px;width:100%;
   min-height:48px;text-align:left;align-items:center;
@@ -544,12 +544,17 @@ table.data td.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums
 .banner{display:flex;gap:10px;align-items:flex-start;background:var(--accent-soft);border-radius:var(--radius);padding:11px 13px;font-size:13.5px;color:var(--ink-2);margin-bottom:14px}
 .banner b{color:var(--ink)}
 .untenleiste{
-  position:fixed;left:0;right:0;bottom:0;z-index:28;display:grid;
-  grid-template-columns:1fr 1fr auto 1fr 1fr;align-items:center;gap:2px;
+  position:fixed;left:0;right:0;bottom:0;z-index:28;
+  display:flex;align-items:center;justify-content:center;gap:8px;
   background:var(--surface);border-top:1px solid var(--line);
   padding:6px max(10px,env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-right));
   box-shadow:0 -2px 12px rgba(14,27,42,.06);
 }
+/* Die beiden Randknöpfe teilen sich den Platz gleich auf, dadurch sitzt der
+   mittlere Knopf immer genau in der Mitte, egal wie breit der Bildschirm ist. */
+.untenleiste > *{max-width:200px}
+.untenleiste .ul-knopf{flex:1 1 0}
+.untenleiste .ul-plus{flex:0 0 auto}
 .ul-knopf{
   border:0;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;
   padding:6px 2px;border-radius:9px;font-size:11px;font-weight:600;color:var(--ink-3);
@@ -558,9 +563,10 @@ table.data td.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums
 .ul-knopf[aria-selected="true"]{color:var(--accent)}
 .ul-plus{
   border:0;background:var(--accent);color:#fff;border-radius:11px;
-  font-size:14px;font-weight:700;line-height:1;cursor:pointer;
-  padding:11px 16px;margin:0 6px;white-space:nowrap;
+  font-size:14.5px;font-weight:700;line-height:1;cursor:pointer;
+  padding:0 22px;height:44px;min-width:132px;white-space:nowrap;
 }
+.ul-plus[aria-selected="true"]{box-shadow:0 0 0 3px var(--accent-soft)}
 .ul-plus:hover{filter:brightness(1.1)}
 main{padding-bottom:86px}
 
@@ -628,6 +634,7 @@ main{padding-bottom:86px}
 
   <main>
     <section id="view-home" hidden></section>
+    <section id="view-heute" hidden></section>
     <section id="view-week" hidden>
       <div class="banner" id="pushBanner">
         <span>📲</span>
@@ -645,6 +652,7 @@ main{padding-bottom:86px}
         </div>
         <h2 id="weekTitle">Woche</h2>
         <button class="heutebtn heute-stark" id="heuteBtn">Heute</button>
+        <button class="heutebtn" id="neuImKalender" hidden>+ Termin</button>
         <button class="heutebtn" id="sperrBtn" hidden title="Urlaub, Hochzeit, Termin privat">Tag streichen</button>
         <span class="startort" id="weekStart"></span>
         <span class="range mono" id="weekRange"></span>
@@ -663,6 +671,7 @@ main{padding-bottom:86px}
   <button class="ul-knopf" id="tab-home" data-view="home" aria-label="Start">
     <span class="ul-icon">⌂</span><span>Start</span></button>
   <button class="ul-plus" id="newBtn" title="Termin setzen">+ Termin</button>
+  <button class="ul-plus" id="heuteTab" title="Deine Termine heute" hidden>Heute</button>
   <button class="ul-knopf" id="tab-week" data-view="week" aria-label="Kalender">
     <span class="ul-icon">▦</span><span>Kalender</span></button>
 </nav>
@@ -730,7 +739,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-20-1327";
+var VERSION = "2026-09-20-1333";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1886,13 +1895,70 @@ function visible(){
 /* ---------------- render ---------------- */
 function render(){
   if($("app").hidden) return;
-  if(S.view!=="home" && S.view!=="week") S.view="week";   // es gibt nur noch diese beiden
+  var istCloser=S.me&&S.me.rolle==="closer";
+  // Der Closer hat unten "Heute" in der Mitte, alle anderen "+ Termin"
+  $("heuteTab").hidden=!istCloser;
+  $("newBtn").hidden=!!istCloser;
+  if(!istCloser && S.view==="heute") S.view="week";
+  if(S.view!=="home" && S.view!=="week" && S.view!=="heute") S.view="week";
   $("view-home").hidden=S.view!=="home";
   $("view-week").hidden=S.view!=="week";
+  $("view-heute").hidden=S.view!=="heute";
   $("tab-home").setAttribute("aria-selected",String(S.view==="home"));
   $("tab-week").setAttribute("aria-selected",String(S.view==="week"));
+  $("heuteTab").setAttribute("aria-selected",String(S.view==="heute"));
   if(S.view==="home") renderHome();
+  else if(S.view==="heute") renderHeute();
   else { renderWeek(); renderSide(); }
+}
+
+function renderHeute(){
+  var heute=ymd(new Date());
+  var tage=erlaubteTermine().filter(function(a){ return a.datum>=heute&&a.status!=="abgesagt"; })
+    .sort(function(a,b){ return startMs(a)-startMs(b); });
+  var tag=tage.length?tage[0].datum:heute;
+  var liste=tage.filter(function(a){ return a.datum===tag; });
+  var d=parseYmd(tag), anf=anfahrten(liste);
+  var fahrt=0, hatFahrt=false;
+  liste.forEach(function(a){ if(anf[a.id]!=null){ fahrt+=anf[a.id]; hatFahrt=true; } });
+  var zurueck=liste.length?fahrVonStart(liste[liste.length-1].closer,liste[liste.length-1].plz,liste[liste.length-1].ort):null;
+  if(zurueck!=null) fahrt+=zurueck;
+
+  var html='<div class="hallo"><h2>'+(tag===heute?"Heute":DOW[(d.getDay()+6)%7])+', '+deDate(d)+'</h2>'+
+    '<p>'+(liste.length
+      ? liste.length+(liste.length===1?" Termin":" Termine")+(hatFahrt?" · rund "+minText(fahrt)+" Fahrt, hin und zurück":"")
+      : "Keine Termine mehr geplant.")+'</p></div>';
+
+  if(!liste.length){
+    html+='<div class="banner"><span>📭</span><div>Kein offener Termin. Über <b>Termin setzen</b> trägst du den nächsten ein.</div></div>';
+  } else {
+    html+='<div class="tagesliste">'+liste.map(function(a,i){
+      var tel=String(a.telefon||"").replace(/[^0-9+]/g,"");
+      var adr=adresseEineZeile(a);
+      var st=STATUS[a.status]||STATUS.geplant;
+      return '<div class="tagkarte" style="--st:'+st.color+'">'+
+        '<div class="kopfzeile">'+
+          '<span class="mono zeit">'+esc(a.zeit)+' bis '+esc(endeVon(a))+'</span>'+
+          '<span class="pill '+esc(a.status)+'">'+esc(st.label)+'</span>'+
+        '</div>'+
+        '<button class="tagname" data-id="'+esc(a.id)+'">'+esc(name(a))+'</button>'+
+        '<div class="tagzeile">'+esc(pgText(a))+' · '+esc(adr||"keine Adresse")+
+          (anf[a.id]!=null?' · 🚗 '+esc(minText(anf[a.id]))+' Anfahrt':'')+'</div>'+
+        (a.hinweise&&a.hinweise.length?'<div class="hinweise" style="margin-top:2px">'+
+          a.hinweise.slice(0,4).map(function(h){ return '<span class="marke">'+esc(h)+'</span>'; }).join("")+'</div>':'')+
+        '<div class="callrow" style="margin-top:9px">'+
+          (adr?'<a class="haupt" href="'+esc(routeLink(adr))+'" target="_blank" rel="noopener">🚗 Losfahren</a>':'')+
+          (tel?'<a href="tel:'+esc(tel)+'">📞 Anrufen</a>':'')+
+          '<a href="#" data-oeffnen="'+esc(a.id)+'">Ergebnis</a>'+
+        '</div>'+
+      '</div>';
+    }).join("")+'</div>';
+  }
+
+  $("view-heute").innerHTML=html;
+  Array.prototype.forEach.call($("view-heute").querySelectorAll("[data-id],[data-oeffnen]"),function(b){
+    b.onclick=function(e){ e.preventDefault(); openAppt(b.dataset.id||b.dataset.oeffnen); };
+  });
 }
 
 function renderHomeAdmin(){
@@ -2040,6 +2106,7 @@ function renderWeek(){
   hb.classList.toggle("ruht",!!amHeute);       // steht man schon auf heute, tritt er zurück
   hb.title = amHeute ? "Du bist beim heutigen Tag" : "Zurück zum heutigen Tag";
   $("sperrBtn").hidden = !(S.me && (S.me.rolle==="closer" || istAdmin()));
+  $("neuImKalender").hidden = !(S.me && S.me.rolle==="closer");   // beim Closer ist unten Heute
   var today=heuteYmd, list=visible(), html="";
   for(var i=0;i<6;i++){
     var d=addDays(start,i), key=ymd(d);
@@ -3585,6 +3652,7 @@ function wire(){
     S.tag=ymd(h); S.weekStart=mondayOf(h); render();
   };
   $("sperrBtn").onclick=function(){ openSperren(); };
+  $("neuImKalender").onclick=function(){ openForm(null); };
   Array.prototype.forEach.call($("modusBar").querySelectorAll("button"),function(b){
     b.onclick=function(){ setModus(b.dataset.m); };
   });
@@ -3606,6 +3674,7 @@ function wire(){
     },{passive:true});
   })();
   $("newBtn").onclick=function(){ openForm(null); };
+  $("heuteTab").onclick=function(){ S.view="heute"; render(); };
   $("bellBtn").onclick=function(){ openFeed(false); };
   $("whoBtn").onclick=openWho;
   $("suchFeld").oninput=zeigeSuche;
