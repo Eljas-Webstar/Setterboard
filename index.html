@@ -46,26 +46,26 @@
 
 /* Dunkler Kalender. Wird über den Schalter unter Zugänge eingestellt. */
 :root[data-theme="dunkel"]{
-  --paper:#1B1B19;
-  --surface:#222220;
-  --surface-2:#2A2A27;
-  --line:#3A3A36;
-  --line-soft:#31312E;
-  --ink:#F2F1EC;
-  --ink-2:#C6C4BC;
-  --ink-3:#928F86;
-  --accent:#4A8FD4;
-  --accent-soft:#25303C;
-  --accent-ink:#8FBEEB;
-  --money:#5FB894;
-  --money-soft:#22302B;
-  --ok:#5FB894;
-  --ok-soft:#22302B;
-  --bad:#E08A80;
-  --bad-soft:#382625;
-  --warn:#D3A263;
-  --warn-soft:#332B20;
-  --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px -14px rgba(0,0,0,.8);
+  --paper:#000000;
+  --surface:#0A0A0B;
+  --surface-2:#141417;
+  --line:#242428;
+  --line-soft:#1A1A1D;
+  --ink:#FFFFFF;
+  --ink-2:#C8C8CE;
+  --ink-3:#8B8B93;
+  --accent:#2F5FA8;
+  --accent-soft:#111B2C;
+  --accent-ink:#8CB4E8;
+  --money:#4FAE86;
+  --money-soft:#0E241C;
+  --ok:#4FAE86;
+  --ok-soft:#0E241C;
+  --bad:#D97B72;
+  --bad-soft:#2A1817;
+  --warn:#C69455;
+  --warn-soft:#241D12;
+  --shadow:0 1px 2px rgba(0,0,0,.6),0 10px 26px -14px rgba(0,0,0,.9);
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -161,21 +161,22 @@ html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
 .calinner{min-width:100%}
 
 /* Monatsgitter */
-.monkopf{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--surface-2);
-  border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0}
+.monkopf{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--line-soft);
+  border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden}
 .monkopf div{padding:9px 6px;text-align:center;font-family:var(--font-display);font-size:11.5px;font-weight:700;
-  letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);border-left:1px solid var(--line)}
-.monkopf div:first-child{border-left:0}
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2)}
 .monkopf div.we{color:var(--ink-3);opacity:.6}
-.mongrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--surface);
-  border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
-.montag{border-left:1px solid var(--line);border-top:1px solid var(--line);min-height:112px;
-  padding:7px 7px 8px;text-align:left;background:transparent;cursor:pointer;
-  display:flex;flex-direction:column;gap:4px;overflow:hidden;transition:background .12s}
-.montag:nth-child(7n+1){border-left:0}
+/* Die Linien entstehen als Lücken zwischen den Feldern. Dadurch sind sie
+   überall gleich dünn, ohne doppelte Ränder an den Stoßkanten. */
+.mongrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;
+  background:var(--line-soft);border:1px solid var(--line);border-top:0;
+  border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+.montag{min-height:112px;padding:7px 7px 8px;text-align:left;background:var(--surface);
+  cursor:pointer;display:flex;flex-direction:column;gap:4px;overflow:hidden;transition:background .12s}
 .montag .mzahl{font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--ink-2);
   align-self:flex-start;line-height:22px;min-width:22px;height:22px;text-align:center;border-radius:999px}
 .montag.we{background:var(--surface-2)}
+.montag.we .mzahl{color:var(--ink-3)}
 .montag.fremd{background:var(--surface-2)}
 .montag.fremd .mzahl{color:var(--ink-3);opacity:.5}
 .montag.fremd .mzeile{opacity:.5}
@@ -216,7 +217,7 @@ html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
   display:grid;grid-template-columns:var(--axis) repeat(6,minmax(0,1fr));
   background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0;
 }
-.calhead .hc{padding:7px 9px;border-left:1px solid var(--line);display:flex;align-items:baseline;gap:6px}
+.calhead .hc{padding:8px 9px;border-left:1px solid var(--line-soft);display:flex;align-items:baseline;gap:6px}
 .calhead .hc:first-child{border-left:0}
 .calhead .dow{font-family:var(--font-display);font-weight:700;font-size:13px}
 .calhead .dnum{font-family:var(--font-mono);font-size:11.5px;color:var(--ink-3)}
@@ -233,8 +234,8 @@ html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
 .axis .tick.major{font-size:12px;font-weight:600;color:var(--ink-2)}
 .axis .tick.minor{font-size:9.5px;color:var(--ink-3);opacity:.75}
 .daycol{
-  position:relative;border-left:1px solid var(--line);
-  background-image:repeating-linear-gradient(to bottom,var(--line-soft) 0 1px,transparent 1px var(--h));
+  position:relative;border-left:1px solid var(--line-soft);
+  background-image:repeating-linear-gradient(to bottom,var(--line-soft) 0 1px,transparent 1px var(--h));background-repeat:repeat;
 }
 .daycol.frei::after{
   content:"";position:absolute;inset:0;pointer-events:none;
@@ -739,7 +740,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-20-1333";
+var VERSION = "2026-09-20-1341";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
