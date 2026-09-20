@@ -148,6 +148,10 @@ main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding-inline:16px;paddin
 .modus button{border:0;background:transparent;border-radius:8px;padding:7px 14px;font-size:13.5px;font-weight:600;color:var(--ink-3);cursor:pointer;line-height:1}
 .modus button[aria-pressed="true"]{background:var(--surface);color:var(--accent-ink);box-shadow:0 1px 2px rgba(15,35,70,.12)}
 .heutebtn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer}
+.heute-stark{background:var(--accent);border-color:var(--accent);color:#fff;font-size:14.5px;
+  padding:10px 18px;border-radius:10px;min-height:44px}
+.heute-stark:hover{filter:brightness(1.06)}
+.heute-stark.ruht{background:var(--surface);border-color:var(--line);color:var(--ink-3);font-weight:600}
 
 /* Wochenraster auf schmalen Geraeten seitwaerts schiebbar */
 html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
@@ -604,7 +608,6 @@ main{padding-bottom:86px}
   <header class="top">
     <div class="top-in">
       <div class="brand"><b>Setterboard</b></div>
-      <div class="kopfkal" id="kopfKal" hidden><span class="avatar" id="kopfKalAv"></span><span><small>Kalender</small><b id="kopfKalName"></b></span></div>
       <div class="suche" id="sucheBox">
         <span class="lupe" aria-hidden="true">🔍</span>
         <input id="suchFeld" type="search" placeholder="Name oder Nummer" autocomplete="off" spellcheck="false" aria-label="Termin suchen">
@@ -625,7 +628,6 @@ main{padding-bottom:86px}
 
   <main>
     <section id="view-home" hidden></section>
-    <section id="view-heute" hidden></section>
     <section id="view-week" hidden>
       <div class="banner" id="pushBanner">
         <span>📲</span>
@@ -642,7 +644,7 @@ main{padding-bottom:86px}
           <button id="nextW" title="vor">›</button>
         </div>
         <h2 id="weekTitle">Woche</h2>
-        <button class="heutebtn" id="heuteBtn">Heute</button>
+        <button class="heutebtn heute-stark" id="heuteBtn">Heute</button>
         <button class="heutebtn" id="sperrBtn" hidden title="Urlaub, Hochzeit, Termin privat">Tag streichen</button>
         <span class="startort" id="weekStart"></span>
         <span class="range mono" id="weekRange"></span>
@@ -654,20 +656,15 @@ main{padding-bottom:86px}
         <aside class="side" id="sideFeed"></aside>
       </div>
     </section>
-    <section id="view-numbers" hidden></section>
   </main>
 </div>
 
 <nav class="untenleiste" id="untenleiste" hidden>
   <button class="ul-knopf" id="tab-home" data-view="home" aria-label="Start">
     <span class="ul-icon">⌂</span><span>Start</span></button>
-  <button class="ul-knopf" id="tab-heute" data-view="heute" aria-label="Heute">
-    <span class="ul-icon">☀</span><span>Heute</span></button>
   <button class="ul-plus" id="newBtn" title="Termin setzen">+ Termin</button>
   <button class="ul-knopf" id="tab-week" data-view="week" aria-label="Kalender">
     <span class="ul-icon">▦</span><span>Kalender</span></button>
-  <button class="ul-knopf" id="tab-num" data-view="numbers" aria-label="Zahlen">
-    <span class="ul-icon">∑</span><span>Zahlen</span></button>
 </nav>
 <div id="overlays"></div>
 
@@ -733,7 +730,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-19-1614";
+var VERSION = "2026-09-20-1327";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1670,8 +1667,6 @@ function enterApp(){
   $("whoRole").textContent=S.me.rolle==="closer"?"Closer":(S.me.rolle==="admin"?"Admin":"Setter");
   $("whoAv").textContent=initials(S.me.name);
   var c=meinCloser();
-  if(istAdmin()&&!c){ $("kopfKal").hidden=false; $("kopfKalName").textContent="Alle Kalender"; $("kopfKalAv").textContent="AL"; }
-  else { $("kopfKal").hidden=!c; if(c){ $("kopfKalName").textContent=c; $("kopfKalAv").textContent=initials(c); } }
   renderFilter(); render(); renderBell(); renderBanner(); terminAusLink();
 }
 
@@ -1891,21 +1886,13 @@ function visible(){
 /* ---------------- render ---------------- */
 function render(){
   if($("app").hidden) return;
+  if(S.view!=="home" && S.view!=="week") S.view="week";   // es gibt nur noch diese beiden
   $("view-home").hidden=S.view!=="home";
-  var istCloser=S.me&&S.me.rolle==="closer";
-  $("tab-heute").style.visibility=istCloser?"visible":"hidden";
-  if(!istCloser&&S.view==="heute") S.view="home";
-  $("view-heute").hidden=S.view!=="heute";
-  $("tab-heute").setAttribute("aria-selected",String(S.view==="heute"));
   $("view-week").hidden=S.view!=="week";
-  $("view-numbers").hidden=S.view!=="numbers";
   $("tab-home").setAttribute("aria-selected",String(S.view==="home"));
   $("tab-week").setAttribute("aria-selected",String(S.view==="week"));
-  $("tab-num").setAttribute("aria-selected",String(S.view==="numbers"));
   if(S.view==="home") renderHome();
-  else if(S.view==="heute") renderHeute();
-  else if(S.view==="week"){ renderWeek(); renderSide(); }
-  else renderNumbers();
+  else { renderWeek(); renderSide(); }
 }
 
 function renderHomeAdmin(){
@@ -1926,7 +1913,6 @@ function renderHomeAdmin(){
 
   html+='<div class="wege">'+
     '<button class="weg" data-go="alle">Alle Termine im Kalender<small>Jeder Kalender, chronologisch</small></button>'+
-    '<button class="weg" data-go="zahlen">Zahlen<small>Über alle Kalender</small></button>'+
   '</div>';
 
   $("view-home").innerHTML=html;
@@ -1936,8 +1922,6 @@ function renderHomeAdmin(){
   });
   Array.prototype.forEach.call($("view-home").querySelectorAll("[data-go]"),function(b){
     b.onclick=function(){
-      var z=b.dataset.go;
-      if(z==="zahlen"){ S.adminKal=null; S.view="numbers"; render(); return; }
       S.adminKal=null; S.view="week"; renderFilter(); render();
     };
   });
@@ -1992,10 +1976,8 @@ function renderHome(){
   }
 
   html+='<div class="wege">'+
-    (istCloser?'<button class="weg" data-go="heute">Heute<small>Deine Termine des Tages in Fahrreihenfolge</small></button>':'')+
     '<button class="weg" data-go="kalender">Kalender<small>Tag, Woche und Monat</small></button>'+
     (istCloser?'':'<button class="weg" data-go="meine">Meine Termine<small>Nur was du selbst gesetzt hast</small></button>')+
-    '<button class="weg" data-go="zahlen">Zahlen<small>Stattgefunden, ausgefallen, Folgetermine</small></button>'+
   '</div>';
 
   $("view-home").innerHTML=html;
@@ -2005,60 +1987,9 @@ function renderHome(){
   Array.prototype.forEach.call($("view-home").querySelectorAll("[data-go]"),function(b){
     b.onclick=function(){
       var z=b.dataset.go;
-      if(z==="zahlen"){ S.view="numbers"; render(); return; }
-      if(z==="heute"){ S.view="heute"; render(); return; }
       S.filterCloser=(z==="meine"?"meine":"alle");
       S.view="week"; renderFilter(); render();
     };
-  });
-}
-
-function renderHeute(){
-  var heute=ymd(new Date());
-  var tage=erlaubteTermine().filter(function(a){ return a.datum>=heute&&a.status!=="abgesagt"; })
-    .sort(function(a,b){ return startMs(a)-startMs(b); });
-  var tag=tage.length?tage[0].datum:heute;
-  var liste=tage.filter(function(a){ return a.datum===tag; });
-  var d=parseYmd(tag), anf=anfahrten(liste);
-  var fahrt=0, hatFahrt=false;
-  liste.forEach(function(a){ if(anf[a.id]!=null){ fahrt+=anf[a.id]; hatFahrt=true; } });
-  var zurueck=liste.length?fahrVonStart(liste[liste.length-1].closer,liste[liste.length-1].plz,liste[liste.length-1].ort):null;
-  if(zurueck!=null) fahrt+=zurueck;
-
-  var html='<div class="hallo"><h2>'+(tag===heute?"Heute":DOW[(d.getDay()+6)%7])+', '+deDate(d)+'</h2>'+
-    '<p>'+(liste.length
-      ? liste.length+(liste.length===1?" Termin":" Termine")+(hatFahrt?" · rund "+minText(fahrt)+" Fahrt, hin und zurück":"")
-      : "Keine Termine mehr geplant.")+'</p></div>';
-
-  if(!liste.length){
-    html+='<div class="banner"><span>📭</span><div>Kein offener Termin. Über <b>Termin setzen</b> trägst du den nächsten ein.</div></div>';
-  } else {
-    html+='<div class="tagesliste">'+liste.map(function(a,i){
-      var tel=String(a.telefon||"").replace(/[^0-9+]/g,"");
-      var adr=adresseEineZeile(a);
-      var st=STATUS[a.status]||STATUS.geplant;
-      return '<div class="tagkarte" style="--st:'+st.color+'">'+
-        '<div class="kopfzeile">'+
-          '<span class="mono zeit">'+esc(a.zeit)+' bis '+esc(endeVon(a))+'</span>'+
-          '<span class="pill '+esc(a.status)+'">'+esc(st.label)+'</span>'+
-        '</div>'+
-        '<button class="tagname" data-id="'+esc(a.id)+'">'+esc(name(a))+'</button>'+
-        '<div class="tagzeile">'+esc(pgText(a))+' · '+esc(adr||"keine Adresse")+
-          (anf[a.id]!=null?' · 🚗 '+esc(minText(anf[a.id]))+' Anfahrt':'')+'</div>'+
-        (a.hinweise&&a.hinweise.length?'<div class="hinweise" style="margin-top:2px">'+
-          a.hinweise.slice(0,4).map(function(h){ return '<span class="marke">'+esc(h)+'</span>'; }).join("")+'</div>':'')+
-        '<div class="callrow" style="margin-top:9px">'+
-          (adr?'<a class="haupt" href="'+esc(routeLink(adr))+'" target="_blank" rel="noopener">🚗 Losfahren</a>':'')+
-          (tel?'<a href="tel:'+esc(tel)+'">📞 Anrufen</a>':'')+
-          '<a href="#" data-oeffnen="'+esc(a.id)+'">Ergebnis</a>'+
-        '</div>'+
-      '</div>';
-    }).join("")+'</div>';
-  }
-
-  $("view-heute").innerHTML=html;
-  Array.prototype.forEach.call($("view-heute").querySelectorAll("[data-id],[data-oeffnen]"),function(b){
-    b.onclick=function(e){ e.preventDefault(); openAppt(b.dataset.id||b.dataset.oeffnen); };
   });
 }
 
@@ -2104,7 +2035,10 @@ function renderWeek(){
   var amHeute = (m==="tag") ? (S.tag===heuteYmd)
     : (m==="woche") ? (ymd(S.weekStart)<=heuteYmd && heuteYmd<=ymd(addDays(S.weekStart,6)))
     : (monatsAnker().getMonth()===new Date().getMonth() && monatsAnker().getFullYear()===new Date().getFullYear());
-  $("heuteBtn").hidden=amHeute;
+  var hb=$("heuteBtn");
+  hb.hidden=false;
+  hb.classList.toggle("ruht",!!amHeute);       // steht man schon auf heute, tritt er zurück
+  hb.title = amHeute ? "Du bist beim heutigen Tag" : "Zurück zum heutigen Tag";
   $("sperrBtn").hidden = !(S.me && (S.me.rolle==="closer" || istAdmin()));
   var today=heuteYmd, list=visible(), html="";
   for(var i=0;i<6;i++){
@@ -2392,69 +2326,6 @@ function cardHtml(a,anfahrtMin){
 }
 
 /* ---------------- Zahlen ---------------- */
-function renderNumbers(){
-  var von=ymd(S.weekStart), bis=ymd(addDays(S.weekStart,6));
-  var istCloser=S.me.rolle==="closer";
-  var basis=erlaubteTermine().filter(function(a){
-    if(a.datum<von||a.datum>bis) return false;
-    return istCloser ? true : a.setter===S.me.name;      // Setter sieht nur die eigenen
-  });
-  var bewertet=basis.filter(function(a){ return a.status!=="geplant"&&a.status!=="abgesagt"; });
-  var gehalten=basis.filter(function(a){ return GEHALTEN[a.status]; });
-  var ausgefallen=basis.filter(function(a){ return a.status==="nichtda"; });
-  var folge=basis.filter(function(a){ return a.status==="folgetermin"; });
-  var offen=basis.filter(function(a){ return a.status==="geplant"; });
-
-  var html='<div class="weekbar"><div class="nav">'+
-    '<button id="prevW2" title="Woche zurück">‹</button><button id="nextW2" title="Woche vor">›</button></div>'+
-    '<h2>'+(istCloser?"Dein Kalender":"Deine Zahlen")+'</h2>'+
-    '<span class="range mono">KW '+isoWeek(S.weekStart)+' · '+deDate(S.weekStart)+' bis '+deDate(addDays(S.weekStart,6))+'</span></div>';
-
-  html+='<div class="tiles">'+
-    tile(istCloser?"Termine":"Von dir gesetzt",basis.length,"in dieser Woche")+
-    tile("Stattgefunden",gehalten.length,bewertet.length?pct(gehalten.length,bewertet.length)+" % der bewerteten":"noch nichts bewertet")+
-    tile("Nicht stattgefunden",ausgefallen.length,ausgefallen.length?"nachfassen lohnt sich":"keine Ausfälle")+
-    tile("Folgetermine",folge.length,"noch offen beim Closer")+
-    '</div>';
-
-  html+='<div class="tablewrap"><h3>'+(istCloser?"Deine Woche":"Deine Woche")+'</h3>'+
-    '<div class="sub">'+(istCloser
-      ? "Alles, was in deinem Kalender steht."
-      : "Nur deine eigenen Termine. Was andere setzen, siehst du hier nicht.")+'</div>'+
-    '<table class="data"><thead><tr><th>Stand</th><th class="num">Termine</th></tr></thead><tbody>'+
-    '<tr><td>Noch offen</td><td class="num">'+offen.length+'</td></tr>'+
-    '<tr><td>Stattgefunden</td><td class="num">'+gehalten.length+'</td></tr>'+
-    '<tr><td>Nicht stattgefunden</td><td class="num">'+ausgefallen.length+'</td></tr>'+
-    '<tr><td>Folgetermine</td><td class="num">'+folge.length+'</td></tr>'+
-    '</tbody></table></div>';
-
-  if(istCloser){
-    var proSetter={};
-    basis.forEach(function(a){
-      var x=proSetter[a.setter]||(proSetter[a.setter]={gesetzt:0,gehalten:0,aus:0});
-      x.gesetzt++;
-      if(GEHALTEN[a.status]) x.gehalten++;
-      if(a.status==="nichtda") x.aus++;
-    });
-    var namen=Object.keys(proSetter);
-    if(namen.length>1){
-      html+='<div class="tablewrap"><h3>Deine Setter</h3><div class="sub">Sehen nur die eigenen Zahlen, nicht die der anderen.</div>'+
-        '<table class="data"><thead><tr><th>Name</th><th style="width:30%">Quote</th>'+
-        '<th class="num">Gesetzt</th><th class="num">Stattgefunden</th><th class="num">Ausgefallen</th></tr></thead><tbody>'+
-        namen.sort(function(a,b){ return proSetter[b].gesetzt-proSetter[a].gesetzt; }).map(function(n){
-          var x=proSetter[n], pp=pct(x.gehalten,x.gesetzt);
-          return '<tr><td><b>'+esc(n)+'</b></td>'+
-            '<td><div style="display:flex;align-items:center;gap:9px"><div class="bar" style="flex:1"><i style="width:'+pp+'%"></i></div><span class="mono" style="font-size:13px">'+pp+' %</span></div></td>'+
-            '<td class="num">'+x.gesetzt+'</td><td class="num">'+x.gehalten+'</td><td class="num">'+x.aus+'</td></tr>';
-        }).join("")+'</tbody></table></div>';
-    }
-  }
-
-  $("view-numbers").innerHTML=html;
-  $("prevW2").onclick=function(){ S.weekStart=addDays(S.weekStart,-7); render(); };
-  $("nextW2").onclick=function(){ S.weekStart=addDays(S.weekStart,7); render(); };
-}
-
 function tile(lab,val,sub,money){
   return '<div class="tile'+(money?" money":"")+'"><div class="lab">'+esc(lab)+'</div>'+
     '<div class="val">'+esc(val)+'</div><div class="sub">'+esc(sub)+'</div></div>';
