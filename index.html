@@ -147,6 +147,12 @@ main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding-inline:16px;paddin
 .modus{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
 .modus button{border:0;background:transparent;border-radius:8px;padding:7px 14px;font-size:13.5px;font-weight:600;color:var(--ink-3);cursor:pointer;line-height:1}
 .modus button[aria-pressed="true"]{background:var(--surface);color:var(--accent-ink);box-shadow:0 1px 2px rgba(15,35,70,.12)}
+.rollenwahl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rollenwahl button{display:flex;flex-direction:column;gap:3px;align-items:flex-start;text-align:left;min-height:56px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer}
+.rollenwahl button span{font-size:12px;font-weight:500;color:var(--ink-3);line-height:1.25}
+.rollenwahl button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.rollenwahl button[aria-pressed="true"] span{color:var(--accent-ink)}
+@media (max-width:420px){ .rollenwahl{grid-template-columns:1fr} }
 .heutebtn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer}
 .heute-stark{background:var(--accent);border-color:var(--accent);color:#fff;font-size:14.5px;
   padding:10px 18px;border-radius:10px;min-height:44px}
@@ -725,7 +731,7 @@ main{padding-bottom:86px}
       <label class="merk"><input type="checkbox" id="lg_bleiben" checked><span>Angemeldet bleiben</span></label>
       <p class="err" id="lg_err" hidden style="margin-top:10px"></p>
       <p class="hint" style="margin-top:14px">
-        Noch keinen Zugang? <button class="btn ghost" id="zeigNeu" style="padding:2px 8px">Setter registrieren</button>
+        Noch keinen Zugang? <button class="btn ghost" id="zeigNeu" style="padding:2px 8px">Jetzt anmelden</button>
       </p>
     </div>
 
@@ -744,7 +750,21 @@ main{padding-bottom:86px}
           <input id="nu_pw" type="password" autocomplete="new-password">
         </div>
       </div>
-      <p class="hint" style="margin-bottom:12px">Im nächsten Schritt wählst du, für welchen Closer du Termine setzt.</p>
+      <div class="field" style="margin-bottom:10px">
+        <label>Was machst du?</label>
+        <div class="rollenwahl" id="nu_rollen">
+          <button type="button" data-r="setter" aria-pressed="true">Setter<span>Termine am Telefon setzen</span></button>
+          <button type="button" data-r="closer" aria-pressed="false">Closer<span>Zu den Kunden fahren</span></button>
+          <button type="button" data-r="monteur" aria-pressed="false">Monteur<span>Rutschschutz einbauen</span></button>
+          <button type="button" data-r="verwaltung" aria-pressed="false">Verwaltung<span>Anträge und Einbauten planen</span></button>
+        </div>
+      </div>
+      <div class="field" id="nu_startWrap" hidden style="margin-bottom:10px">
+        <label for="nu_start">Von wo fährst du morgens los?</label>
+        <input id="nu_start" autocomplete="street-address" placeholder="Lindenstraße 6, 32657 Lemgo">
+        <span class="hint">Damit die Fahrzeiten zu deinen Terminen stimmen.</span>
+      </div>
+      <p class="hint" id="nu_folge" style="margin-bottom:12px">Im nächsten Schritt wählst du, für welchen Closer du Termine setzt.</p>
       <div class="warnbox" id="nu_einladung" hidden style="margin-bottom:12px"></div>
       <button class="btn primary" id="nu_go" style="width:100%">Registrieren</button>
       <p class="err" id="nu_err" hidden style="margin-top:10px"></p>
@@ -765,7 +785,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-21-1350";
+var VERSION = "2026-09-21-1550";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -922,7 +942,7 @@ function meldung(e){
 /* ---------------- state ---------------- */
 var S = {
   me:null, view:"home", weekStart:mondayOf(new Date()), tag:ymd(new Date()),
-  kalModus:null, wartet:null, anfragen:[], closerSuche:"", einladKal:null, auftraege:[], feedSig:"",
+  kalModus:null, wartet:null, freigabe:null, freigaben:[], anfragen:[], closerSuche:"", einladKal:null, auftraege:[], feedSig:"",
   appts:[], team:[], activity:[], sperr:[], filterCloser:"alle",
   lastSeen:Number(LS.get("sb_lastSeen")||0),
   ready:false, offline:false, firstFeed:true, neuerZugang:null, adminKal:null, teamSig:""
@@ -1058,6 +1078,27 @@ function sbStore(){
         if(r.error) return [];
         return r.data||[];
       });
+    },
+    freigabenLaden:function(){
+      return sb.rpc("freigabe_liste").then(function(r){
+        if(r.error) return [];
+        return r.data||[];
+      });
+    },
+    freigeben:function(person){
+      var eigenerKalender = (person.rolle==="closer"||person.rolle==="monteur");
+      var vor = eigenerKalender
+        ? sb.from("kalender").insert({ name:person.name, start_strasse:person.strasse||null,
+            start_plz:person.plz||null, start_ort:person.ort||null })
+            .select("id").single().then(function(r){ if(r.error) throw r.error; return r.data.id; })
+        : Promise.resolve(null);
+      return vor.then(function(kid){
+        return sb.from("personen").update({ freigegeben:true, kalender_id:kid,
+          wunsch_strasse:null, wunsch_plz:null, wunsch_ort:null }).eq("id",person.id);
+      }).then(function(r){ if(r.error) throw r.error; });
+    },
+    freigabeAblehnen:function(id){
+      return sb.from("personen").delete().eq("id",id).then(function(r){ if(r.error) throw r.error; });
     },
     anfrageEntscheiden:function(id,status){
       return sb.from("anfragen").update({status:status}).eq("id",id).then(function(r){
@@ -1553,6 +1594,12 @@ function nachAnmeldung(user){
       setDiag("Dieser Zugang ist noch keinem Kalender zugeordnet. Melde dich beim Admin.",true);
       return;
     }
+    // Closer, Monteur und Verwaltung warten auf die Freigabe durch einen Admin
+    if(r.data.freigegeben===false){
+      S.freigabe={ id:user.id, name:r.data.name, rolle:r.data.rolle };
+      return freigabeBildschirm();
+    }
+    S.freigabe=null;
     // Setter ohne Kalender wartet auf die Zusage seines Closers
     if(r.data.rolle==="setter" && !r.data.kalender_id){
       S.wartet={ id:user.id, name:r.data.name };
@@ -1570,6 +1617,58 @@ function nachAnmeldung(user){
     });
   });
 }
+
+/* Zwischenschritt für Closer, Monteur und Verwaltung:
+   der Zugang steht, ein Admin muss ihn nur noch freigeben. */
+var freigabeTimer=null;
+
+function freigabeBildschirm(){
+  $("app").hidden=true; $("untenleiste").hidden=true; $("gate").hidden=false;
+  $("loginBox").hidden=true; $("neuBox").hidden=true;
+  var alt=$("warteBox"); if(alt) alt.remove();
+
+  $("gateTitel").textContent="Fast fertig";
+  $("gateText").textContent="Dein Zugang ist angelegt.";
+
+  var el=document.createElement("div"); el.id="warteBox";
+  el.innerHTML='<div class="warnbox" style="margin-bottom:12px">'+
+      '<b>Ein Admin muss dich noch freigeben</b><br>'+
+      'Du bist als '+esc(rollenName(S.freigabe.rolle))+' angemeldet. Sobald jemand deinen Zugang bestätigt, '+
+      'geht es hier von allein weiter. Ein kurzer Anruf beschleunigt das meistens.</div>'+
+    '<button class="btn ghost" id="w_ab" style="width:100%">Abmelden</button>';
+  document.querySelector(".gate-box").insertBefore(el, $("gateHint"));
+
+  $("w_ab").onclick=function(){
+    stoppFreigabeUhr();
+    sb.auth.signOut({scope:"local"}).then(function(){
+      S.freigabe=null;
+      var w=$("warteBox"); if(w) w.remove();
+      renderGate();
+    });
+  };
+
+  starteFreigabeUhr();
+  setDiag("");
+  return Promise.resolve();
+}
+
+function starteFreigabeUhr(){
+  if(freigabeTimer) return;
+  freigabeTimer=setInterval(function(){
+    if(!S.freigabe){ stoppFreigabeUhr(); return; }
+    sb.from("personen").select("freigegeben").eq("id",S.freigabe.id).maybeSingle().then(function(p){
+      if(p.data && p.data.freigegeben){
+        stoppFreigabeUhr();
+        var w=$("warteBox"); if(w) w.remove();
+        var id=S.freigabe.id; S.freigabe=null;
+        sb.auth.getUser().then(function(u){
+          nachAnmeldung((u.data&&u.data.user)||{ id:id });
+        });
+      }
+    });
+  },8000);
+}
+function stoppFreigabeUhr(){ if(freigabeTimer){ clearInterval(freigabeTimer); freigabeTimer=null; } }
 
 /* Zwischenschritt für Setter ohne Kalender:
    Closer wählen, auf die Zusage warten, oder es bei jemand anderem versuchen. */
@@ -1738,6 +1837,16 @@ function connect(){
       if(liste.length!==vorher) renderBanner();
     });
   },20000);
+
+  // Wartende Zugänge regelmäßig prüfen, nur für den Admin
+  setInterval(function(){
+    if(!istAdmin() || !store || !store.freigabenLaden) return;
+    store.freigabenLaden().then(function(liste){
+      var vorher=(S.freigaben||[]).length;
+      S.freigaben=liste;
+      if(liste.length!==vorher) renderBanner();
+    });
+  },20000);
 }
 
 function enterApp(){
@@ -1749,6 +1858,9 @@ function enterApp(){
   $("whoAv").textContent=initials(S.me.name);
   var c=meinCloser();
   renderFilter(); render(); renderBell(); renderBanner(); terminAusLink();
+  if(istAdmin() && store && store.freigabenLaden){
+    store.freigabenLaden().then(function(l){ S.freigaben=l; renderBanner(); });
+  }
 }
 
 function terminAusLink(){
@@ -1762,7 +1874,17 @@ function terminAusLink(){
 function renderBanner(){
   var b=$("pushBanner"); if(!b) return;
   var t=$("pushBannerText");
-  // Offene Anfragen haben Vorrang
+  // Wartende Zugänge zuerst, dann die Anfragen
+  if(t && istAdmin() && S.freigaben && S.freigaben.length){
+    b.hidden=false;
+    var nf=S.freigaben.length;
+    t.innerHTML='<b>'+nf+(nf===1?' Zugang wartet':' Zugänge warten')+' auf Freigabe.</b> '+
+      'Solange kommt derjenige nicht rein. '+
+      '<button class="btn ghost" id="freigabeJetzt" style="padding:2px 8px">Ansehen</button>';
+    var fj=$("freigabeJetzt");
+    if(fj) fj.onclick=function(){ openWho(); };
+    return;
+  }
   if(t && S.anfragen && S.anfragen.length){
     b.hidden=false;
     var n=S.anfragen.length;
@@ -1836,28 +1958,71 @@ function einladungAusLink(){
   try{ history.replaceState(null,"",location.pathname); }catch(e){}
 }
 
+var NEU_ROLLE="setter";
+
+var ROLLENTEXT={
+  setter:"Im nächsten Schritt wählst du, für welchen Closer du Termine setzt.",
+  closer:"Du bekommst einen eigenen Kalender. Ein Admin muss deinen Zugang noch freigeben.",
+  monteur:"Du bekommst einen eigenen Kalender für deine Einbauten. Ein Admin muss deinen Zugang noch freigeben.",
+  verwaltung:"Du siehst alle Kalender und planst die Einbauten. Ein Admin muss deinen Zugang noch freigeben."
+};
+
+function rolleWaehlen(r){
+  NEU_ROLLE=r;
+  var box=$("nu_rollen");
+  if(box) Array.prototype.forEach.call(box.querySelectorAll("button"),function(b){
+    b.setAttribute("aria-pressed", b.dataset.r===r ? "true" : "false");
+  });
+  var sw=$("nu_startWrap");
+  if(sw) sw.hidden = !(r==="closer"||r==="monteur");
+  var f=$("nu_folge");
+  if(f) f.textContent=ROLLENTEXT[r]||"";
+  var e=$("nu_einladung");
+  if(e && r!=="setter"){ e.hidden=true; }
+  else if(e && r==="setter" && EINLADUNG){ e.hidden=false; }
+}
+
 function zeigeNeu(an){
   $("loginBox").hidden=an;
   $("neuBox").hidden=!an;
-  $("gateTitel").textContent = an ? "Setter registrieren" : "Anmelden";
+  $("gateTitel").textContent = an ? "Zugang anlegen" : "Anmelden";
   $("gateText").textContent = an
-    ? "Leg dir einen Zugang an. Danach sagst du, für wen du Termine setzt."
+    ? "Sag, wie du heißt und was du machst. Den Rest klärt die App."
     : "Melde dich mit deinem Benutzernamen und Passwort an.";
-  if(an && EINLADUNG){
+  if(an){
+    var box=$("nu_rollen");
+    if(box && !box.dataset.fertig){
+      box.dataset.fertig="1";
+      Array.prototype.forEach.call(box.querySelectorAll("button"),function(b){
+        b.onclick=function(){ rolleWaehlen(b.dataset.r); };
+      });
+    }
+    rolleWaehlen(EINLADUNG?"setter":NEU_ROLLE);
+  }
+  if(an && EINLADUNG && NEU_ROLLE==="setter"){
     $("nu_einladung").hidden=false;
     $("nu_einladung").innerHTML='<b>Du wurdest eingeladen.</b><br>Nach dem Anlegen bist du sofort im Kalender, ohne Warten.';
   }
 }
 
-function setterAnlegen(){
+function zugangAnlegen(){
   var name=$("nu_name").value.trim();
   var u=benutzerNorm($("nu_user").value);
   var pw=$("nu_pw").value;
+  var rolle=NEU_ROLLE;
   var err=$("nu_err");
   err.hidden=true;
   if(!name) { err.hidden=false; err.textContent="Wie heißt du?"; return; }
   if(u.length<3){ err.hidden=false; err.textContent="Der Benutzername braucht mindestens drei Zeichen."; return; }
   if(pw.length<6){ err.hidden=false; err.textContent="Das Passwort braucht mindestens sechs Zeichen."; return; }
+
+  var eigenerKalender = (rolle==="closer"||rolle==="monteur");
+  var st = eigenerKalender ? adresseZerlegen($("nu_start").value) : null;
+  if(eigenerKalender && !koord(st.plz,st.ort)){
+    err.hidden=false;
+    err.textContent="Trag ein, von wo du losfährst, mit Postleitzahl und Ort.";
+    return;
+  }
 
   var kb=$("lg_bleiben");
   bleibenSetzen(kb?kb.checked:true);
@@ -1868,10 +2033,12 @@ function setterAnlegen(){
     if(r.error) throw r.error;
     var id=r.data.user && r.data.user.id;
     if(!id) throw new Error("Der Zugang wurde nicht angelegt.");
-    return sb.from("personen").insert({ id:id, name:name, rolle:"setter", kalender_id:null })
+    var zeile={ id:id, name:name, rolle:rolle, kalender_id:null, freigegeben:(rolle==="setter") };
+    if(st){ zeile.wunsch_strasse=st.strasse||null; zeile.wunsch_plz=st.plz||null; zeile.wunsch_ort=st.ort||null; }
+    return sb.from("personen").insert(zeile)
       .then(function(p2){
         if(p2.error) throw p2.error;
-        if(EINLADUNG){
+        if(EINLADUNG && rolle==="setter"){
           return sb.rpc("einladung_einloesen",{ code_ein:EINLADUNG }).then(function(e){
             if(e.error) throw e.error;
             if(e.data!=="ok") throw new Error("Diese Einladung gilt nicht mehr ("+e.data+"). Frag deinen Closer nach einer neuen.");
@@ -1892,7 +2059,7 @@ function setterAnlegen(){
 }
 
 function renderGate(){
-  if(S.wartet) return;                       // Setter wartet auf seinen Closer
+  if(S.wartet||S.freigabe) return;           // wartet auf Closer oder Admin
   var kb=$("lg_bleiben"); if(kb) kb.checked=!FENSTER_MODUS;
   var neuOffen = $("neuBox") && !$("neuBox").hidden;
   if(!neuOffen){
@@ -2271,7 +2438,9 @@ function renderHomeAdmin(){
   var filter=(S.closerSuche||"").toLowerCase();
   var sichtbar=cs.filter(function(c){ return !filter || c.name.toLowerCase().indexOf(filter)>-1; });
   var html='<div class="hallo"><h2>Hallo '+esc(S.me.name)+'</h2>'+
-    '<p>Adminzugang. Du siehst alle Kalender, ihre Setter und Zugänge.</p></div>';
+    '<p>'+(istVerwaltung()
+      ? 'Du siehst alle Kalender und jeden Monteur. Von hier aus planst du die Einbauten.'
+      : 'Adminzugang. Du siehst alle Kalender, ihre Setter und Zugänge.')+'</p></div>';
 
   html+=kalenderSuchfeld(cs.length);
   html+='<div class="kalreihe">'+(sichtbar.length?sichtbar.map(function(c){
@@ -3358,6 +3527,55 @@ function meinKalenderId(){
   return null;
 }
 
+function zeichneFreigaben(){
+  var box=$("freigabeBox"); if(!box||!store||!store.freigabenLaden) return;
+  store.freigabenLaden().then(function(liste){
+    S.freigaben=liste;
+    if(!liste.length){ box.innerHTML=""; return; }
+    box.innerHTML='<div class="sec-label" style="margin-bottom:6px">Wartet auf deine Freigabe</div>'+
+      '<div class="people" style="margin-bottom:14px">'+liste.map(function(f){
+        var wo=[f.strasse,[f.plz,f.ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+        return '<div class="person-row">'+
+          '<span class="person" style="cursor:default"><span class="avatar">'+esc(initials(f.name))+'</span>'+
+          '<b>'+esc(f.name)+'</b><span class="r">'+esc(rollenName(f.rolle))+(wo?' · '+esc(wo):'')+'</span></span>'+
+          '<button class="btn primary" data-frei="'+esc(f.id)+'" style="padding:5px 12px">Freigeben</button>'+
+          '<button class="del" data-freinein="'+esc(f.id)+'" title="Ablehnen">✕</button>'+
+        '</div>';
+      }).join("")+'</div>';
+
+    Array.prototype.forEach.call(box.querySelectorAll("[data-frei]"),function(b){
+      b.onclick=function(){
+        var f=liste.filter(function(x){ return x.id===b.dataset.frei; })[0];
+        if(!f) return;
+        if((f.rolle==="closer"||f.rolle==="monteur") && !koord(f.plz,f.ort)){
+          toast("Für einen eigenen Kalender fehlt eine brauchbare Startadresse."); return;
+        }
+        b.disabled=true;
+        store.freigeben(f).then(function(){
+          toast(f.name+" ist freigeschaltet.");
+          logEvent("neu",f.name+" ist jetzt "+rollenName(f.rolle));
+          openWho();
+        }).catch(function(e){ b.disabled=false; toast(meldung(e)); });
+      };
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-freinein]"),function(b){
+      b.onclick=function(){
+        var f=liste.filter(function(x){ return x.id===b.dataset.freinein; })[0];
+        var zeile=b.parentNode, id=b.dataset.freinein;
+        zeile.innerHTML='<div class="confirm"><p><b>'+esc(f?f.name:"Dieser Zugang")+'</b> ablehnen? '+
+          'Die Anmeldung wird gelöscht, er kann es danach neu versuchen.</p>'+
+          '<div class="row"><button class="yes" data-yes="1">Ablehnen</button><button data-no="1">Abbrechen</button></div></div>';
+        zeile.querySelector("[data-no]").onclick=function(){ openWho(); };
+        zeile.querySelector("[data-yes]").onclick=function(){
+          store.freigabeAblehnen(id).then(function(){
+            toast("Abgelehnt."); openWho();
+          }).catch(function(e){ toast(meldung(e)); });
+        };
+      };
+    });
+  });
+}
+
 function zeichneAnfragen(){
   var box=$("anfrageBox"); if(!box||!store||!store.anfragenLaden) return;
   store.anfragenLaden().then(function(liste){
@@ -3480,7 +3698,7 @@ function zeichnePush(){
     p.then(function(){
       b.disabled=false;
       toast(an?"Dieses Gerät bekommt keine Mitteilungen mehr.":"Mitteilungen sind an.");
-      zeichnePush(); zeichneThema(); zeichneAnfragen(); zeichneTeilen();
+      zeichnePush(); zeichneThema(); zeichneFreigaben(); zeichneAnfragen(); zeichneTeilen();
 
   var fb=$("fassungBtn");
   if(fb) fb.onclick=function(){
@@ -3611,7 +3829,7 @@ function openWho(){
   }
   if(istAdmin()){
     // Admin: erst die Zugänge samt Anlegen, die Einladung danach
-    body='<div id="anfrageBox"></div>'+body+'<hr class="sep"><div id="teilenBox"></div>';
+    body='<div id="freigabeBox"></div><div id="anfrageBox"></div>'+body+'<hr class="sep"><div id="teilenBox"></div>';
   } else if(S.me.rolle==="closer"){
     body='<div id="anfrageBox"></div>'+
       '<div id="teilenBox" style="margin-bottom:14px"></div>'+body;
@@ -3644,7 +3862,7 @@ function openWho(){
   var okBtn=$("zugangOk");
   if(okBtn) okBtn.onclick=function(){ S.neuerZugang=null; openWho(); };
 
-  zeichnePush(); zeichneThema(); zeichneAnfragen(); zeichneTeilen();
+  zeichnePush(); zeichneThema(); zeichneFreigaben(); zeichneAnfragen(); zeichneTeilen();
 
   var fb=$("fassungBtn");
   if(fb) fb.onclick=function(){
@@ -3696,7 +3914,7 @@ function openWho(){
         if(!mitKalender) return null;
         return store.kalenderAnlegen(n,st);
       }).then(function(kid){
-        return sb.from("personen").insert({ id:neueId, name:n, rolle:rolle, kalender_id:kid||null });
+        return sb.from("personen").insert({ id:neueId, name:n, rolle:rolle, kalender_id:kid||null, freigegeben:true });
       }).then(function(r){
         $("ad_go").disabled=false;
         if(r&&r.error) throw r.error;
@@ -3970,9 +4188,9 @@ function wire(){
   $("lg_go").onclick=anmelden;
   $("zeigNeu").onclick=function(){ zeigeNeu(true); };
   $("zeigLogin").onclick=function(){ zeigeNeu(false); };
-  $("nu_go").onclick=setterAnlegen;
+  $("nu_go").onclick=zugangAnlegen;
   $("nu_user").onblur=function(){ this.value=benutzerNorm(this.value); };
-  $("nu_pw").onkeydown=function(e){ if(e.key==="Enter") setterAnlegen(); };
+  $("nu_pw").onkeydown=function(e){ if(e.key==="Enter") zugangAnlegen(); };
   $("lg_pw").onkeydown=function(e){ if(e.key==="Enter") anmelden(); };
   $("lg_user").onkeydown=function(e){ if(e.key==="Enter") $("lg_pw").focus(); };
 
