@@ -725,7 +725,7 @@ main{padding-bottom:86px}
       <label class="merk"><input type="checkbox" id="lg_bleiben" checked><span>Angemeldet bleiben</span></label>
       <p class="err" id="lg_err" hidden style="margin-top:10px"></p>
       <p class="hint" style="margin-top:14px">
-        Noch keinen Zugang? <button class="btn ghost" id="zeigNeu" style="padding:2px 8px">Jetzt anmelden</button>
+        Noch keinen Zugang? <button class="btn ghost" id="zeigNeu" style="padding:2px 8px">Registrieren</button>
       </p>
     </div>
 
@@ -765,7 +765,7 @@ main{padding-bottom:86px}
       <button class="btn primary" id="nu_go" style="width:100%">Registrieren</button>
       <p class="err" id="nu_err" hidden style="margin-top:10px"></p>
       <p class="hint" style="margin-top:14px">
-        Schon einen Zugang? <button class="btn ghost" id="zeigLogin" style="padding:2px 8px">Zur Anmeldung</button>
+        Schon einen Zugang? <button class="btn ghost" id="zeigLogin" style="padding:2px 8px">Anmelden</button>
       </p>
     </div>
 
@@ -781,7 +781,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-21-1606";
+var VERSION = "2026-09-21-1610";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1979,7 +1979,7 @@ function rolleWaehlen(r){
 function zeigeNeu(an){
   $("loginBox").hidden=an;
   $("neuBox").hidden=!an;
-  $("gateTitel").textContent = an ? "Zugang anlegen" : "Anmelden";
+  $("gateTitel").textContent = an ? "Registrieren" : "Anmelden";
   $("gateText").textContent = an
     ? "Sag, wie du heißt und was du machst. Den Rest klärt die App."
     : "Melde dich mit deinem Benutzernamen und Passwort an.";
@@ -2055,7 +2055,7 @@ function renderGate(){
   var kb=$("lg_bleiben"); if(kb) kb.checked=!FENSTER_MODUS;
   var neuOffen = $("neuBox") && !$("neuBox").hidden;
   if(neuOffen){
-    $("gateTitel").textContent = "Zugang anlegen";
+    $("gateTitel").textContent = "Registrieren";
     $("gateText").textContent = "Sag, wie du heißt und was du machst. Den Rest klärt die App.";
   } else {
     $("gateTitel").textContent = "Anmelden";
