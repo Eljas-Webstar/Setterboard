@@ -82,7 +82,7 @@ h1,h2,h3{font-family:var(--font-display);margin:0;letter-spacing:-.02em;text-wra
 .app{min-height:100vh;display:flex;flex-direction:column}
 header.top{position:sticky;top:0;z-index:30;background:var(--surface);border-bottom:1px solid var(--line)}
 .top-in{max-width:1440px;margin:0 auto;padding-block:10px;padding-inline:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.brand{display:flex;align-items:baseline;gap:8px;margin-right:4px}
+.brand{display:flex;align-items:baseline;gap:8px;margin-right:4px;border:0;background:transparent;padding:0;cursor:pointer;font:inherit}
 .brand b{font-family:var(--font-display);font-weight:800;font-size:19px;letter-spacing:-.03em;color:var(--accent)}
 .brand span{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.09em}
 .kopfkal{display:flex;align-items:center;gap:8px;padding-left:12px;border-left:1px solid var(--line)}
@@ -147,12 +147,6 @@ main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding-inline:16px;paddin
 .modus{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
 .modus button{border:0;background:transparent;border-radius:8px;padding:7px 14px;font-size:13.5px;font-weight:600;color:var(--ink-3);cursor:pointer;line-height:1}
 .modus button[aria-pressed="true"]{background:var(--surface);color:var(--accent-ink);box-shadow:0 1px 2px rgba(15,35,70,.12)}
-.rollenwahl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.rollenwahl button{display:flex;flex-direction:column;gap:3px;align-items:flex-start;text-align:left;min-height:56px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:700;cursor:pointer}
-.rollenwahl button span{font-size:12px;font-weight:500;color:var(--ink-3);line-height:1.25}
-.rollenwahl button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
-.rollenwahl button[aria-pressed="true"] span{color:var(--accent-ink)}
-@media (max-width:420px){ .rollenwahl{grid-template-columns:1fr} }
 .heutebtn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer}
 .heute-stark{background:var(--accent);border-color:var(--accent);color:#fff;font-size:14.5px;
   padding:10px 18px;border-radius:10px;min-height:44px}
@@ -643,7 +637,7 @@ main{padding-bottom:86px}
 <div class="app" id="app" hidden>
   <header class="top">
     <div class="top-in">
-      <div class="brand"><b>Setterboard</b></div>
+      <button class="brand" id="brandBtn" title="Zur Startseite"><b>Setterboard</b></button>
       <div class="suche" id="sucheBox">
         <span class="lupe" aria-hidden="true">🔍</span>
         <input id="suchFeld" type="search" placeholder="Name oder Nummer" autocomplete="off" spellcheck="false" aria-label="Termin suchen">
@@ -751,19 +745,21 @@ main{padding-bottom:86px}
         </div>
       </div>
       <div class="field" style="margin-bottom:10px">
-        <label>Was machst du?</label>
-        <div class="rollenwahl" id="nu_rollen">
-          <button type="button" data-r="setter" aria-pressed="true">Setter<span>Termine am Telefon setzen</span></button>
-          <button type="button" data-r="closer" aria-pressed="false">Closer<span>Zu den Kunden fahren</span></button>
-          <button type="button" data-r="monteur" aria-pressed="false">Monteur<span>Rutschschutz einbauen</span></button>
-          <button type="button" data-r="verwaltung" aria-pressed="false">Verwaltung<span>Anträge und Einbauten planen</span></button>
-        </div>
+        <label for="nu_rolle">Was machst du?</label>
+        <select id="nu_rolle">
+          <option value="setter">Setter, Termine am Telefon setzen</option>
+          <option value="closer">Closer, zu den Kunden fahren</option>
+          <option value="monteur">Monteur, Rutschschutz einbauen</option>
+          <option value="verwaltung">Verwaltung, Anträge und Einbauten planen</option>
+        </select>
       </div>
       <div class="field" id="nu_startWrap" hidden style="margin-bottom:10px">
         <label for="nu_start">Von wo fährst du morgens los?</label>
         <input id="nu_start" autocomplete="street-address" placeholder="Lindenstraße 6, 32657 Lemgo">
         <span class="hint">Damit die Fahrzeiten zu deinen Terminen stimmen.</span>
       </div>
+      <div class="warnbox" style="margin-bottom:10px"><b>Schreib dir Benutzername und Passwort auf.</b><br>
+        Die App zeigt dir das Passwort später nicht mehr an.</div>
       <p class="hint" id="nu_folge" style="margin-bottom:12px">Im nächsten Schritt wählst du, für welchen Closer du Termine setzt.</p>
       <div class="warnbox" id="nu_einladung" hidden style="margin-bottom:12px"></div>
       <button class="btn primary" id="nu_go" style="width:100%">Registrieren</button>
@@ -785,7 +781,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-21-1550";
+var VERSION = "2026-09-21-1606";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1969,10 +1965,8 @@ var ROLLENTEXT={
 
 function rolleWaehlen(r){
   NEU_ROLLE=r;
-  var box=$("nu_rollen");
-  if(box) Array.prototype.forEach.call(box.querySelectorAll("button"),function(b){
-    b.setAttribute("aria-pressed", b.dataset.r===r ? "true" : "false");
-  });
+  var sel=$("nu_rolle");
+  if(sel && sel.value!==r) sel.value=r;
   var sw=$("nu_startWrap");
   if(sw) sw.hidden = !(r==="closer"||r==="monteur");
   var f=$("nu_folge");
@@ -1990,12 +1984,10 @@ function zeigeNeu(an){
     ? "Sag, wie du heißt und was du machst. Den Rest klärt die App."
     : "Melde dich mit deinem Benutzernamen und Passwort an.";
   if(an){
-    var box=$("nu_rollen");
-    if(box && !box.dataset.fertig){
-      box.dataset.fertig="1";
-      Array.prototype.forEach.call(box.querySelectorAll("button"),function(b){
-        b.onclick=function(){ rolleWaehlen(b.dataset.r); };
-      });
+    var sel=$("nu_rolle");
+    if(sel && !sel.dataset.fertig){
+      sel.dataset.fertig="1";
+      sel.onchange=function(){ rolleWaehlen(sel.value); };
     }
     rolleWaehlen(EINLADUNG?"setter":NEU_ROLLE);
   }
@@ -2062,7 +2054,10 @@ function renderGate(){
   if(S.wartet||S.freigabe) return;           // wartet auf Closer oder Admin
   var kb=$("lg_bleiben"); if(kb) kb.checked=!FENSTER_MODUS;
   var neuOffen = $("neuBox") && !$("neuBox").hidden;
-  if(!neuOffen){
+  if(neuOffen){
+    $("gateTitel").textContent = "Zugang anlegen";
+    $("gateText").textContent = "Sag, wie du heißt und was du machst. Den Rest klärt die App.";
+  } else {
     $("gateTitel").textContent = "Anmelden";
     $("gateText").textContent = "Melde dich mit deinem Benutzernamen und Passwort an.";
     $("loginBox").hidden = false;
@@ -2520,17 +2515,11 @@ function renderHome(){
   } else {
     var woche=erlaubteTermine().filter(function(a){ return a.datum>=von&&a.datum<=bis&&a.status!=="abgesagt"; });
     var offen=woche.filter(function(a){ return a.status==="geplant"; }).length;
-    var naechst=erlaubteTermine().filter(function(a){ return a.status==="geplant"&&a.datum>=heute; })
-      .sort(function(a,b){ return startMs(a)-startMs(b); })[0];
     html+='<div class="kalreihe">'+
       kachel(c, woche.length+(istM
         ? (woche.length===1?" Einbau diese Woche":" Einbauten diese Woche")
         : (woche.length===1?" Termin diese Woche":" Termine diese Woche"))+
                 (offen?" · "+offen+" offen":""), istCloser)+'</div>';
-    html+='<div class="naechstzeile">'+(naechst
-      ? '<b>Als Nächstes</b> '+esc(name(naechst))+' in '+esc(ortText(naechst))+', '+
-        esc(deDate(parseYmd(naechst.datum)))+' um '+esc(naechst.zeit)
-      : 'Kein Termin geplant')+'</div>';
   }
 
   html+='<div class="wege">'+
@@ -4242,6 +4231,7 @@ function wire(){
   $("newBtn").onclick=function(){ openForm(null); };
   $("heuteTab").onclick=function(){ S.view="heute"; render(); };
   $("bellBtn").onclick=function(){ openFeed(false); };
+  $("brandBtn").onclick=function(){ closeOverlay(); S.view="home"; render(); };
   $("whoBtn").onclick=openWho;
   $("suchFeld").oninput=zeigeSuche;
   $("suchFeld").onfocus=zeigeSuche;
