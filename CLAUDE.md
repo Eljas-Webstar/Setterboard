@@ -35,6 +35,28 @@ Zugriff über RLS, Hilfsfunktionen `mein_kalender()` und `bin_admin()`.
 
 Benutzername wird intern zu `benutzer@setterboard.local`.
 
+## Rollen und Freigabe (Stand 21.09.2026)
+
+Jeder legt sich seinen Zugang selbst an und wählt dabei die Rolle.
+
+| Rolle | Kalender | Kommt rein, sobald |
+|---|---|---|
+| Setter | fremder | ein Closer die Anfrage annimmt |
+| Closer | eigener | ein Admin freigibt |
+| Monteur | eigener | ein Admin freigibt |
+| Verwaltung | keiner, sieht alles | ein Admin freigibt |
+
+Closer und Monteur geben ihre Startadresse schon bei der Anmeldung an, sie landet
+in `personen.wunsch_strasse/_plz/_ort`. Beim Freigeben legt der Admin-Client daraus
+den Kalender an und leert die Wunschfelder.
+
+`personen.freigegeben` steuert das Tor. Wichtig: der Trigger `personen_schutz`
+verbietet jedem außer dem Admin, `rolle` oder `freigegeben` zu ändern. Ohne den
+könnte sich jeder Setter über die Browserkonsole selbst zum Admin machen.
+Die Insert-Policy lässt `admin` als Wunschrolle gar nicht erst zu.
+
+SQL dazu: `sql/setterboard-freigabe.sql`, setzt `sql/setterboard-monteure.sql` voraus.
+
 ## Fallen, die schon einmal Zeit gekostet haben
 
 - **Edge Function heißt in der Adresse `pusch-senden`**, angezeigt wird `push-senden`.
