@@ -435,6 +435,18 @@ body.panel-offen{overflow:hidden;position:relative;width:100%}
 .ak-zeile.hint{font-size:12px;color:var(--ink-3)}
 .ak-knoepfe{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .ak-knoepfe .btn{min-height:40px}
+.gruppen{display:flex;flex-direction:column;gap:8px}
+.gruppe{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.gruppe>summary{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;
+  font-weight:700;font-size:15px;color:var(--ink);list-style:none;min-height:46px}
+.gruppe>summary::-webkit-details-marker{display:none}
+.gruppe>summary::before{content:"\203A";display:inline-block;transition:transform .15s;
+  color:var(--ink-3);font-size:18px;line-height:1;width:10px}
+.gruppe[open]>summary::before{transform:rotate(90deg)}
+.gruppe>summary .gname{flex:1}
+.gruppe>summary .gzahl{font-family:var(--font-mono);font-size:13px;color:var(--ink-3);
+  background:var(--surface-2);border-radius:999px;padding:2px 9px;font-variant-numeric:tabular-nums}
+.gruppe .people{padding:0 10px 10px}
 .trennzeile{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);
   font-weight:700;padding:10px 2px 4px;border-top:1px solid var(--line);margin-top:6px}
 .kalenderTitel{font-family:var(--font-display);font-size:19px;font-weight:700;margin-bottom:10px;color:var(--ink)}
@@ -556,6 +568,12 @@ table.data td.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums
 .person-row{display:flex;gap:6px;align-items:stretch}
 .person-row .person{flex:1;min-width:0}
 .person-row .person b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* In den Zugangsgruppen steht der Name oben und die Rolle klein darunter,
+   sonst quetschen sich beide nebeneinander und der Name wird abgeschnitten */
+.gruppe .person{align-items:flex-start;flex-wrap:wrap;row-gap:2px}
+.gruppe .person b{flex:1 1 auto;min-width:0;font-size:15px;white-space:normal;overflow-wrap:anywhere}
+.gruppe .person .r{margin-left:0;flex:1 0 100%;padding-left:34px;text-transform:none;letter-spacing:0;font-size:12px}
+.gruppe .person .avatar{flex:0 0 auto}
 .del{flex:0 0 auto;width:38px;border:1px solid var(--line);background:var(--surface);border-radius:9px;color:var(--ink-3);font-size:15px;line-height:1;cursor:pointer}
 .del:hover{border-color:var(--bad);color:var(--bad)}
 .del.pwbtn:hover{border-color:var(--accent);color:var(--accent)}
@@ -789,7 +807,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-21-1627";
+var VERSION = "2026-09-21-1635";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -946,7 +964,8 @@ function meldung(e){
 /* ---------------- state ---------------- */
 var S = {
   me:null, view:"home", weekStart:mondayOf(new Date()), tag:ymd(new Date()),
-  kalModus:null, wartet:null, freigabe:null, freigaben:[], letzteSicht:null, anfragen:[], closerSuche:"", einladKal:null, auftraege:[], feedSig:"",
+  kalModus:null, wartet:null, freigabe:null, freigaben:[], letzteSicht:null,
+  gruppeOffen:{closer:true,monteur:false,verwaltung:false}, anfragen:[], closerSuche:"", einladKal:null, auftraege:[], feedSig:"",
   appts:[], team:[], activity:[], sperr:[], filterCloser:"alle",
   lastSeen:Number(LS.get("sb_lastSeen")||0),
   ready:false, offline:false, firstFeed:true, neuerZugang:null, adminKal:null, teamSig:""
@@ -3741,6 +3760,42 @@ function zeichnePush(){
   };
 }
 
+/* Zugänge nach Aufgabe gebündelt, damit die Liste bei vielen Leuten übersichtlich bleibt */
+function closerMitSettern(){
+  var raus=[];
+  closers().forEach(function(c){
+    raus.push(c);
+    S.team.filter(function(m){ return m.rolle==="setter"&&m.gehoertZu===c.name; })
+      .forEach(function(m){ raus.push(m); });
+  });
+  // Setter ohne Closer gehen sonst unter
+  S.team.filter(function(m){ return m.rolle==="setter"&&!m.gehoertZu; }).forEach(function(m){ raus.push(m); });
+  return raus;
+}
+
+function personZeile(m){
+  var eingerueckt = (m.rolle==="setter");
+  var ich = (S.me&&m.id===S.me.id);
+  return '<div class="person-row" data-row="'+esc(m.id)+'"'+(eingerueckt?' style="padding-left:18px"':'')+'>'+
+    '<span class="person" style="cursor:default"><span class="avatar">'+esc(initials(m.name))+'</span>'+
+    '<b>'+esc(m.name)+'</b><span class="r">'+esc(rollenName(m.rolle))+
+      (m.benutzer?' · '+esc(m.benutzer):'')+(ich?' · das bist du':'')+'</span></span>'+
+    (ich ? '' :
+      '<button class="del pwbtn" data-neupw="'+esc(m.id)+'" title="Neues Passwort">🔑</button>'+
+      '<button class="del" data-del="'+esc(m.id)+'" title="Zugang entziehen">✕</button>')+
+  '</div>';
+}
+
+function gruppe(schluessel, titel, leute){
+  var offen = S.gruppeOffen[schluessel] ? " open" : "";
+  return '<details class="gruppe"'+offen+' data-gruppe="'+esc(schluessel)+'">'+
+    '<summary><span class="gname">'+esc(titel)+'</span>'+
+      '<span class="gzahl">'+leute.length+'</span></summary>'+
+    '<div class="people">'+
+      (leute.length ? leute.map(personZeile).join("") : '<p class="hint" style="padding:8px 2px">Noch niemand.</p>')+
+    '</div></details>';
+}
+
 function openWho(){
   var body, foot='<button class="btn ghost" id="logoutBtn">Abmelden</button>'+
     '<button class="btn ghost" id="wechselBtn">Hier anderes Konto</button>';
@@ -3754,39 +3809,11 @@ function openWho(){
   if(istAdmin()){
     var cs3=closers();
     body=zugangKasten+'<div class="sec-label" style="margin-bottom:6px">Zugänge</div>'+
-      '<p class="hint" style="margin-bottom:8px">Alle Kalender mit ihren Zugängen. Das ✕ entzieht den Zugang.</p>'+
-      '<div class="people" id="whoList">'+
-      (cs3.length?cs3.map(function(c){
-        var setter=S.team.filter(function(m){ return m.rolle==="setter"&&m.gehoertZu===c.name; });
-        return '<div class="person-row" data-row="'+esc(c.id)+'">'+
-            '<span class="person" style="cursor:default"><span class="avatar">'+esc(initials(c.name))+'</span>'+
-            '<b>'+esc(c.name)+'</b><span class="r">Closer · '+esc(c.benutzer||"")+'</span></span>'+
-            '<button class="del pwbtn" data-neupw="'+esc(c.id)+'" title="Neues Passwort">🔑</button>'+
-            '<button class="del" data-del="'+esc(c.id)+'" title="Kalender entziehen">✕</button>'+
-          '</div>'+
-          setter.map(function(m){
-            return '<div class="person-row" data-row="'+esc(m.id)+'" style="padding-left:18px">'+
-              '<span class="person" style="cursor:default"><span class="avatar">'+esc(initials(m.name))+'</span>'+
-              '<b>'+esc(m.name)+'</b><span class="r">Setter · '+esc(m.benutzer||"")+'</span></span>'+
-              '<button class="del pwbtn" data-neupw="'+esc(m.id)+'" title="Neues Passwort">🔑</button>'+
-              '<button class="del" data-del="'+esc(m.id)+'" title="Zugang entziehen">✕</button>'+
-            '</div>';
-          }).join("");
-      }).join(""):'<p class="hint">Noch kein Kalender angelegt.</p>')+
-      // Monteure und Verwaltung hängen an keinem Closer, deshalb eigene Zeilen
-      (function(){
-        var rest=S.team.filter(function(m){ return m.rolle==="monteur"||m.rolle==="verwaltung"||m.rolle==="admin"; });
-        if(!rest.length) return "";
-        return '<div class="trennzeile">Weitere Zugänge</div>'+rest.map(function(m){
-          return '<div class="person-row" data-row="'+esc(m.id)+'">'+
-            '<span class="person" style="cursor:default"><span class="avatar">'+esc(initials(m.name))+'</span>'+
-            '<b>'+esc(m.name)+'</b><span class="r">'+esc(rollenName(m.rolle))+' · '+esc(m.benutzer||"")+'</span></span>'+
-            (m.id===S.me.id ? '' :
-              '<button class="del pwbtn" data-neupw="'+esc(m.id)+'" title="Neues Passwort">🔑</button>'+
-              '<button class="del" data-del="'+esc(m.id)+'" title="Zugang entziehen">✕</button>')+
-          '</div>';
-        }).join("");
-      })()+
+      '<p class="hint" style="margin-bottom:8px">Antippen zeigt die Namen. Der Schlüssel vergibt ein neues Passwort, das ✕ entzieht den Zugang.</p>'+
+      '<div class="gruppen">'+
+        gruppe("closer","Closer und Setter", closerMitSettern())+
+        gruppe("monteur","Monteure", S.team.filter(function(m){ return m.rolle==="monteur"; }))+
+        gruppe("verwaltung","Verwaltung und Admin", S.team.filter(function(m){ return m.rolle==="verwaltung"||m.rolle==="admin"; }))+
       '</div>'+
       '<hr class="sep">'+
       '<div><div class="sec-label" style="margin-bottom:6px">Zugang anlegen</div>'+
@@ -3950,9 +3977,13 @@ function openWho(){
         toast("Passwort zurücksetzen geht in dieser Fassung nur über Supabase. Lösch den Zugang und leg ihn neu an.");
       };
     });
-    var wl2=$("whoList");
+    var wl2=document.querySelector(".gruppen");
     if(wl2) Array.prototype.forEach.call(wl2.querySelectorAll("[data-del]"),function(b){
       b.onclick=function(){ askDelete(wl2,b.dataset.del); };
+    });
+    // Gemerkt lassen, welche Gruppen offen sind, sonst klappt nach jeder Aktion alles zu
+    Array.prototype.forEach.call(document.querySelectorAll("details.gruppe"),function(d){
+      d.addEventListener("toggle",function(){ S.gruppeOffen[d.dataset.gruppe]=d.open; });
     });
   }
   if(S.me.rolle==="closer"){
