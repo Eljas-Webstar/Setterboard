@@ -268,6 +268,8 @@ html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
 .tblock.st-stattgefunden{background:var(--ok-soft)}
 .tblock.st-folgetermin{background:var(--warn-soft)}
 .tblock.st-abgesagt{opacity:.55}
+.tblock.einbau{border-left-style:double;border-left-width:5px}
+.tblock.einbau .z::after{content:" · Einbau";color:var(--accent-ink);font-weight:600}
 .fahrt{
   position:absolute;left:2px;right:2px;border-radius:5px;z-index:1;
   background:repeating-linear-gradient(135deg,var(--surface-2) 0 6px,transparent 6px 12px);
@@ -413,6 +415,20 @@ body.panel-offen{overflow:hidden;position:relative;width:100%}
 .kopfmarke{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .kopfmarke-name{font-family:var(--font-display);font-weight:800;font-size:23px;letter-spacing:-.01em;color:var(--accent)}
 .kopfmarke-satz{font-size:13px;color:var(--ink-3);margin-top:2px}
+.auftragsblock{margin-bottom:18px}
+.auftragsblock .sec-label{margin-bottom:8px}
+.auftragskarte{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius);
+  padding:12px 14px;margin-bottom:8px}
+.ak-kopf{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
+.ak-kopf b{font-size:15px}
+.ak-umfang{font-size:12px;background:var(--accent-soft);color:var(--accent-ink);
+  border-radius:5px;padding:2px 7px;font-weight:600}
+.ak-zeile{font-size:13px;color:var(--ink-2);line-height:1.4}
+.ak-zeile.hint{font-size:12px;color:var(--ink-3)}
+.ak-knoepfe{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.ak-knoepfe .btn{min-height:40px}
+.trennzeile{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);
+  font-weight:700;padding:10px 2px 4px;border-top:1px solid var(--line);margin-top:6px}
 .kalenderTitel{font-family:var(--font-display);font-size:19px;font-weight:700;margin-bottom:10px;color:var(--ink)}
 .kalreihe{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
 .kalkachel{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);
@@ -643,6 +659,7 @@ main{padding-bottom:86px}
   <main>
     <section id="view-home" hidden></section>
     <section id="view-heute" hidden></section>
+    <section id="view-auftraege" hidden></section>
     <section id="view-week" hidden>
       <div class="banner" id="pushBanner">
         <span>📲</span>
@@ -748,7 +765,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-20-1350";
+var VERSION = "2026-09-21-1334";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -905,7 +922,7 @@ function meldung(e){
 /* ---------------- state ---------------- */
 var S = {
   me:null, view:"home", weekStart:mondayOf(new Date()), tag:ymd(new Date()),
-  kalModus:null, wartet:null, anfragen:[], closerSuche:"", einladKal:null,
+  kalModus:null, wartet:null, anfragen:[], closerSuche:"", einladKal:null, auftraege:[],
   appts:[], team:[], activity:[], sperr:[], filterCloser:"alle",
   lastSeen:Number(LS.get("sb_lastSeen")||0),
   ready:false, offline:false, firstFeed:true, neuerZugang:null, adminKal:null, teamSig:""
@@ -928,7 +945,8 @@ function terminAusDb(r){
     notiz:r.notiz||"", hinweise:r.hinweise||[],
     entscheider:!!r.entscheider, papiere:!!r.papiere,
     datum:r.datum, zeit:String(r.zeit||"").slice(0,5), dauer:r.dauer||60,
-    status:r.status||"geplant", setter:r.setter_name||"", updatedBy:r.geaendert_von||""
+    status:r.status||"geplant", setter:r.setter_name||"", updatedBy:r.geaendert_von||"",
+    art:r.art||"beratung"
   };
 }
 function terminInDb(a){
@@ -940,7 +958,7 @@ function terminInDb(a){
     notiz:a.notiz||null, hinweise:a.hinweise||[],
     entscheider:!!a.entscheider, papiere:!!a.papiere,
     datum:a.datum, zeit:a.zeit, dauer:+a.dauer||60,
-    status:a.status||"geplant", setter_name:a.setter||null,
+    status:a.status||"geplant", setter_name:a.setter||null, art:a.art||"beratung",
     geaendert_von:a.updatedBy||null, geaendert:new Date().toISOString()
   };
 }
@@ -1012,6 +1030,28 @@ function sbStore(){
     },
     delAppt:function(id){
       return sb.from("termine").delete().eq("id",id).then(function(r){ if(r.error) throw r.error; jetzt(); });
+    },
+    auftragAnlegen:function(a,umfang){
+      return sb.from("auftraege").insert({
+        termin_id: (String(a.id).length>30 ? a.id : null),
+        kalender_id: a.kalender_id || kalIdVon(a.closer),
+        vorname:a.vorname||null, nachname:a.nachname||null, telefon:a.telefon||null,
+        strasse:a.strasse||null, plz:a.plz||null, ort:a.ort||null,
+        umfang: umfang||null, status:"verkauft",
+        verkauft_von: a.closer||null, gesetzt_von: a.setter||null
+      }).then(function(r){ if(r.error) throw r.error; jetzt(); });
+    },
+    auftraegeLaden:function(){
+      return sb.from("auftraege").select("*").order("angelegt",{ascending:false}).then(function(r){
+        if(r.error) return [];
+        return r.data||[];
+      });
+    },
+    auftragAendern:function(id,daten){
+      daten.geaendert=new Date().toISOString();
+      return sb.from("auftraege").update(daten).eq("id",id).then(function(r){
+        if(r.error) throw r.error; jetzt();
+      });
     },
     anfragenLaden:function(){
       return sb.from("anfragen").select("*").eq("status","offen").then(function(r){
@@ -1140,6 +1180,7 @@ function toast(msg){
   setTimeout(function(){ el.remove(); },4200);
 }
 function closers(){ return S.team.filter(function(m){ return m.rolle==="closer"; }); }
+function monteure(){ return S.team.filter(function(m){ return m.rolle==="monteur"; }); }
 function name(a){ return ((a.vorname||"")+" "+(a.nachname||"")).trim()||a.kunde||"Ohne Namen"; }
 function adresse(a){ return [a.strasse,[a.plz,a.ort].filter(Boolean).join(" ")].filter(Boolean).join(", "); }
 function logEvent(kind,text,apptId,schluessel){
@@ -1404,7 +1445,10 @@ function fahrMin(plzA,ortA,plzB,ortB){
   return Math.round(km/v*60)+FAHRT.puffer;
 }
 function startPunkt(closerName){
-  var c=S.team.filter(function(m){ return m.rolle==="closer"&&m.name===closerName; })[0];
+  // Closer und Monteur haben beide einen eigenen Startpunkt
+  var c=S.team.filter(function(m){
+    return (m.rolle==="closer"||m.rolle==="monteur") && m.name===closerName;
+  })[0];
   if(c&&(c.startPlz||c.startOrt)){
     var k=koord(c.startPlz,c.startOrt);
     if(k) return {
@@ -1420,6 +1464,12 @@ function fahrVonStart(closerName,plzB,ortB){
   var km=kmZwischen(startPunkt(closerName).koord,b)*FAHRT.umweg;
   var v = tempo(km);
   return Math.round(km/v*60)+FAHRT.puffer;
+}
+function dauerText(m){
+  if(m<60) return m+" Minuten";
+  var st=m/60;
+  if(st===1) return "1 Stunde";
+  return String(st).replace(".",",")+" Stunden";
 }
 function minText(m){
   if(m==null) return "?";
@@ -1682,7 +1732,7 @@ function enterApp(){
   S.view="home";
   if(S.me.rolle==="closer") S.filterCloser=S.me.name;
   $("whoName").textContent=S.me.name;
-  $("whoRole").textContent=S.me.rolle==="closer"?"Closer":(S.me.rolle==="admin"?"Admin":"Setter");
+  $("whoRole").textContent=rollenName(S.me.rolle);
   $("whoAv").textContent=initials(S.me.name);
   var c=meinCloser();
   renderFilter(); render(); renderBell(); renderBanner(); terminAusLink();
@@ -1883,14 +1933,24 @@ function renderFilter(){
 }
 
 function istAdmin(){ return !!(S.me&&S.me.rolle==="admin"); }
+function istVerwaltung(){ return !!(S.me&&S.me.rolle==="verwaltung"); }
+function istMonteur(){ return !!(S.me&&S.me.rolle==="monteur"); }
+function sichtAufAlles(){ return istAdmin()||istVerwaltung(); }
+function rollenName(r){
+  return r==="admin" ? "Admin"
+    : r==="verwaltung" ? "Verwaltung"
+    : r==="closer" ? "Closer"
+    : r==="monteur" ? "Monteur" : "Setter";
+}
 function meinCloser(){
   if(!S.me) return null;
-  if(istAdmin()) return S.adminKal||null;
-  return S.me.rolle==="closer" ? S.me.name : (S.me.gehoertZu||null);
+  if(sichtAufAlles()) return S.adminKal||null;
+  if(S.me.rolle==="closer"||S.me.rolle==="monteur") return S.me.name;
+  return S.me.gehoertZu||null;
 }
 function erlaubteTermine(){
   var c=meinCloser();
-  if(istAdmin()&&!c) return S.appts.slice();
+  if(sichtAufAlles()&&!c) return S.appts.slice();
   if(!c) return [];
   return S.appts.filter(function(a){ return a.closer===c; });
 }
@@ -1904,20 +1964,23 @@ function visible(){
 /* ---------------- render ---------------- */
 function render(){
   if($("app").hidden) return;
-  var istCloser=S.me&&S.me.rolle==="closer";
-  // Der Closer hat unten "Heute" in der Mitte, alle anderen "+ Termin"
+  // Wer rausfährt, hat unten "Heute" in der Mitte, alle anderen "+ Termin"
+  var istCloser=S.me&&(S.me.rolle==="closer"||S.me.rolle==="monteur");
   $("heuteTab").hidden=!istCloser;
   $("newBtn").hidden=!!istCloser;
   if(!istCloser && S.view==="heute") S.view="week";
-  if(S.view!=="home" && S.view!=="week" && S.view!=="heute") S.view="week";
+  if(S.view==="auftraege" && !(sichtAufAlles()||istCloser)) S.view="week";
+  if(["home","week","heute","auftraege"].indexOf(S.view)<0) S.view="week";
   $("view-home").hidden=S.view!=="home";
   $("view-week").hidden=S.view!=="week";
   $("view-heute").hidden=S.view!=="heute";
+  $("view-auftraege").hidden=S.view!=="auftraege";
   $("tab-home").setAttribute("aria-selected",String(S.view==="home"));
   $("tab-week").setAttribute("aria-selected",String(S.view==="week"));
   $("heuteTab").setAttribute("aria-selected",String(S.view==="heute"));
   if(S.view==="home") renderHome();
   else if(S.view==="heute") renderHeute();
+  else if(S.view==="auftraege") renderAuftraege();
   else { renderWeek(); renderSide(); }
 }
 
@@ -1970,6 +2033,174 @@ function renderHeute(){
   });
 }
 
+/* ---------------- Aufträge ----------------
+   Was verkauft wurde und noch nicht eingebaut ist. Die Verwaltung arbeitet diese
+   Liste ab: Antrag raus, Genehmigung eintragen, Monteur und Tag festlegen. */
+var AUFTRAG_STUFEN = [
+  ["verkauft",   "Verkauft",            "Antrag muss noch zur Kasse"],
+  ["beantragt",  "Bei der Kasse",       "Wartet auf die Genehmigung"],
+  ["genehmigt",  "Genehmigt",           "Kann eingeplant werden"],
+  ["terminiert", "Termin steht",        "Monteur ist eingeteilt"],
+  ["erledigt",   "Erledigt",            "Eingebaut und fertig"],
+  ["abgelehnt",  "Abgelehnt",           "Die Kasse zahlt nicht"]
+];
+
+function renderAuftraege(){
+  var ziel=$("view-auftraege");
+  ziel.innerHTML='<div class="hallo"><h2>Aufträge</h2><p>Lade …</p></div>';
+  if(!store||!store.auftraegeLaden) return;
+
+  store.auftraegeLaden().then(function(liste){
+    S.auftraege=liste;
+    var offen=liste.filter(function(x){ return x.status!=="erledigt"&&x.status!=="abgelehnt"; });
+    var html='<div class="hallo"><h2>Aufträge</h2><p>'+
+      (offen.length? offen.length+(offen.length===1?" Auftrag ist offen.":" Aufträge sind offen.") : "Alles abgearbeitet.")+
+      (sichtAufAlles()?" Genehmigte Aufträge planst du unten ein.":" Du siehst, was aus deinen Verkäufen geworden ist.")+
+      '</p></div>';
+
+    if(!liste.length){
+      html+='<div class="banner"><span>📭</span><div>Noch kein Auftrag. Sobald ein Closer bei einem Termin auf verkauft setzt, steht er hier.</div></div>';
+      ziel.innerHTML=html; return;
+    }
+
+    AUFTRAG_STUFEN.forEach(function(st){
+      var teil=liste.filter(function(x){ return x.status===st[0]; });
+      if(!teil.length) return;
+      html+='<div class="auftragsblock"><div class="sec-label">'+esc(st[1])+
+        ' <span class="hint" style="text-transform:none;letter-spacing:0">'+esc(st[2])+'</span></div>'+
+        teil.map(auftragKarte).join("")+'</div>';
+    });
+
+    ziel.innerHTML=html;
+    bindeAuftraege();
+  });
+}
+
+function auftragKarte(x){
+  var wer=((x.vorname||"")+" "+(x.nachname||"")).trim()||"Ohne Namen";
+  var adr=[x.strasse,[x.plz,x.ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  var darfPlanen = sichtAufAlles();
+  var knoepfe="";
+  if(darfPlanen){
+    if(x.status==="verkauft")   knoepfe='<button class="btn" data-auf-status="beantragt" data-auf="'+esc(x.id)+'">Antrag ist raus</button>';
+    if(x.status==="beantragt")  knoepfe='<button class="btn primary" data-auf-status="genehmigt" data-auf="'+esc(x.id)+'">Genehmigt</button>'+
+                                        '<button class="btn ghost" data-auf-status="abgelehnt" data-auf="'+esc(x.id)+'">Abgelehnt</button>';
+    if(x.status==="genehmigt")  knoepfe='<button class="btn primary" data-auf-planen="'+esc(x.id)+'">Einbau planen</button>';
+    if(x.status==="terminiert") knoepfe='<button class="btn" data-auf-status="erledigt" data-auf="'+esc(x.id)+'">Eingebaut</button>';
+  }
+  var monteur = x.monteur_kalender ? (kalNameVon(x.monteur_kalender)||"") : "";
+  return '<div class="auftragskarte">'+
+    '<div class="ak-kopf"><b>'+esc(wer)+'</b>'+
+      (x.umfang?'<span class="ak-umfang">'+esc(x.umfang)+'</span>':'')+'</div>'+
+    '<div class="ak-zeile">'+esc(adr||"keine Adresse")+'</div>'+
+    '<div class="ak-zeile hint">Verkauft von '+esc(x.verkauft_von||"?")+
+      (x.gesetzt_von?', gesetzt von '+esc(x.gesetzt_von):'')+
+      (monteur?' · Monteur '+esc(monteur):'')+
+      (x.genehmigt_am?' · genehmigt am '+esc(deDate(parseYmd(x.genehmigt_am))):'')+'</div>'+
+    (knoepfe?'<div class="ak-knoepfe">'+knoepfe+'</div>':'')+
+  '</div>';
+}
+
+function bindeAuftraege(){
+  var w=$("view-auftraege");
+  Array.prototype.forEach.call(w.querySelectorAll("[data-auf-status]"),function(b){
+    b.onclick=function(){
+      b.disabled=true;
+      var daten={ status:b.dataset.aufStatus };
+      if(b.dataset.aufStatus==="genehmigt") daten.genehmigt_am=ymd(new Date());
+      store.auftragAendern(b.dataset.auf,daten).then(function(){
+        toast("Gespeichert."); renderAuftraege();
+      }).catch(function(e){ b.disabled=false; toast(meldung(e)); });
+    };
+  });
+  Array.prototype.forEach.call(w.querySelectorAll("[data-auf-planen]"),function(b){
+    b.onclick=function(){ planeEinbau(b.dataset.aufPlanen); };
+  });
+}
+
+function planeEinbau(id){
+  var x=(S.auftraege||[]).filter(function(a){ return a.id===id; })[0];
+  if(!x) return;
+  var ms=monteure();
+  if(!ms.length){
+    overlay("Einbau planen",'<div class="stop"><b>Kein Monteur angelegt</b>Leg zuerst unter Einstellungen einen Zugang mit der Rolle Monteur an.</div>',
+      '<button class="btn ghost" id="pe_zu">Schließen</button>',"planen");
+    $("pe_zu").onclick=closeOverlay; return;
+  }
+  var wer=((x.vorname||"")+" "+(x.nachname||"")).trim();
+  var adr=[x.strasse,[x.plz,x.ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  var morgen=ymd(addDays(new Date(),1));
+
+  overlay("Einbau planen",
+    '<div class="kv"><dt>Kunde</dt><dd><b>'+esc(wer)+'</b></dd>'+
+      '<dt>Adresse</dt><dd>'+esc(adr||"—")+'</dd>'+
+      '<dt>Umfang</dt><dd>'+esc(x.umfang||"nicht angegeben")+'</dd></div>'+
+    '<div class="field" style="margin-bottom:10px"><label for="pe_monteur">Welcher Monteur?</label>'+
+      '<select id="pe_monteur">'+ms.map(function(m){
+        return '<option value="'+esc(m.name)+'">'+esc(m.name)+'</option>'; }).join("")+'</select></div>'+
+    '<div class="two" style="margin-bottom:10px">'+
+      '<div class="field"><label for="pe_datum">Tag</label><input type="date" id="pe_datum" class="mono" value="'+esc(morgen)+'"></div>'+
+      '<div class="field"><label for="pe_zeit">Beginn</label><input type="time" id="pe_zeit" class="mono" step="900" value="08:00"></div>'+
+    '</div>'+
+    '<div class="field" style="margin-bottom:10px"><label for="pe_dauer">Dauer</label>'+
+      '<select id="pe_dauer">'+[60,90,120,180,240,300].map(function(m){
+        return '<option value="'+m+'"'+(m===180?" selected":"")+'>'+dauerText(m)+'</option>';
+      }).join("")+'</select></div>'+
+    '<p class="hint" id="pe_hint"></p>'+
+    '<p class="err" id="pe_err" hidden></p>',
+    '<button class="btn primary" id="pe_go">Einbau eintragen</button>'+
+    '<button class="btn ghost" id="pe_ab">Abbrechen</button>',"planen");
+
+  function pruefen(){
+    var m=$("pe_monteur").value, d=$("pe_datum").value, z=$("pe_zeit").value;
+    var h=$("pe_hint");
+    if(!m||!d||!z){ h.textContent=""; return; }
+    var f=fahrVonStart(m,x.plz,x.ort);
+    var sp=gesperrt(d,m);
+    h.textContent = (sp? "Achtung: "+m+" ist an dem Tag nicht da"+(sp.grund?" ("+sp.grund+")":"")+". " : "")+
+      (f!=null ? "Anfahrt rund "+minText(f)+" ab "+startPunkt(m).text+"." : "Fahrzeit unbekannt, Postleitzahl prüfen.");
+    h.style.color = sp ? "var(--bad)" : "";
+  }
+  $("pe_monteur").onchange=pruefen; $("pe_datum").onchange=pruefen; $("pe_zeit").onchange=pruefen;
+  pruefen();
+
+  $("pe_ab").onclick=closeOverlay;
+  $("pe_go").onclick=function(){
+    var m=$("pe_monteur").value, d=$("pe_datum").value, z=$("pe_zeit").value,
+        dauer=+$("pe_dauer").value||180, e=$("pe_err");
+    e.hidden=true;
+    if(!d||!z){ e.hidden=false; e.textContent="Tag und Uhrzeit fehlen."; return; }
+    $("pe_go").disabled=true;
+
+    var termin={
+      id: uid(),
+      art:"einbau",
+      closer:m, kalender_id:kalIdVon(m),
+      vorname:x.vorname, nachname:x.nachname, telefon:x.telefon,
+      strasse:x.strasse, plz:x.plz, ort:x.ort,
+      pflegegrad:null, wohnform:null,
+      notiz: x.umfang ? ("Einbau: "+x.umfang) : "Einbau",
+      hinweise:[], entscheider:false, papiere:false,
+      datum:d, zeit:z, dauer:dauer, status:"geplant",
+      setter: x.verkauft_von || ""
+    };
+    store.saveAppt(termin).then(function(neu){
+      return store.auftragAendern(x.id,{
+        status:"terminiert",
+        monteur_kalender:kalIdVon(m),
+        einbau_termin_id:(neu&&neu.id)||null
+      });
+    }).then(function(){
+      closeOverlay();
+      toast("Einbau steht. "+m+" bekommt eine Mitteilung.");
+      logEvent("neu","Einbau bei "+((x.vorname||"")+" "+(x.nachname||"")).trim()+" am "+deDate(parseYmd(d))+" für "+m);
+      renderAuftraege();
+    }).catch(function(err){
+      $("pe_go").disabled=false; e.hidden=false; e.textContent=meldung(err);
+    });
+  };
+}
+
 function renderHomeAdmin(){
   var cs=closers();
   var filter=(S.closerSuche||"").toLowerCase();
@@ -1984,9 +2215,20 @@ function renderHomeAdmin(){
     return kachel(c.name, t+(t===1?" Termin":" Termine")+" · "+setter+(setter===1?" Setter":" Setter"));
   }).join(""):'<p class="hint">Kein Kalender mit diesem Namen.</p>')+'</div>';
 
+  // Monteure haben eigene Kalender, die Verwaltung muss deren Auslastung sehen
+  var ms=monteure().filter(function(m){ return !filter || m.name.toLowerCase().indexOf(filter)>-1; });
+  if(ms.length){
+    html+='<div class="sec-label" style="margin:14px 0 6px">Monteure</div>'+
+      '<div class="kalreihe">'+ms.map(function(m){
+        var e=S.appts.filter(function(a){ return a.closer===m.name&&a.status!=="abgesagt"; }).length;
+        return kachel(m.name, e+(e===1?" Einbau":" Einbauten"));
+      }).join("")+'</div>';
+  }
+
   if(!cs.length) html+='<div class="banner"><span>📭</span><div>Noch kein Closer angelegt. Über das Menü oben rechts legst du einen an.</div></div>';
 
   html+='<div class="wege">'+
+    '<button class="weg" data-go="auftraege">Aufträge<small>Verkauft, genehmigt, einzuplanen</small></button>'+
     '<button class="weg" data-go="alle">Alle Termine im Kalender<small>Jeder Kalender, chronologisch</small></button>'+
   '</div>';
 
@@ -1997,6 +2239,7 @@ function renderHomeAdmin(){
   });
   Array.prototype.forEach.call($("view-home").querySelectorAll("[data-go]"),function(b){
     b.onclick=function(){
+      if(b.dataset.go==="auftraege"){ S.view="auftraege"; render(); return; }
       S.adminKal=null; S.view="week"; renderFilter(); render();
     };
   });
@@ -2025,24 +2268,30 @@ function renderHome(){
   var heute=ymd(new Date()), c=meinCloser();
   var meine=erlaubteTermine().filter(function(a){ return a.setter===S.me.name&&a.status==="geplant"&&a.datum>=heute; }).length;
   var istCloser=S.me.rolle==="closer";
+  var istM=istMonteur();
+  var faehrtRaus=istCloser||istM;
 
-  if(istAdmin()) return renderHomeAdmin();
+  if(sichtAufAlles()) return renderHomeAdmin();
   var html='<div class="hallo"><h2>Hallo '+esc(S.me.name)+'</h2><p>'+
-    (istCloser
+    (istM
+      ? 'Deine Einbauten. Termin antippen für Route, Anruf und Abschluss.'
+      : istCloser
       ? 'Dein Kalender. Termin antippen, um das Ergebnis zu setzen.'
       : 'Du trägst im Kalender von '+esc(c||"deinem Closer")+' ein.'+(meine?' '+meine+' deiner Termine stehen noch offen.':''))+
     '</p></div>';
 
   if(!c){
     html+='<div class="kal-karte" style="cursor:default"><div class="kopf"><b>Kein Kalender zugeordnet</b></div>'+
-      '<div class="naechster">Dein Closer muss dir einen Zugang geben. Melde dich bei ihm.</div></div>';
+      '<div class="naechster">'+(istM?"Die Verwaltung muss dir einen Kalender geben.":"Dein Closer muss dir einen Zugang geben. Melde dich bei ihm.")+'</div></div>';
   } else {
     var woche=erlaubteTermine().filter(function(a){ return a.datum>=von&&a.datum<=bis&&a.status!=="abgesagt"; });
     var offen=woche.filter(function(a){ return a.status==="geplant"; }).length;
     var naechst=erlaubteTermine().filter(function(a){ return a.status==="geplant"&&a.datum>=heute; })
       .sort(function(a,b){ return startMs(a)-startMs(b); })[0];
     html+='<div class="kalreihe">'+
-      kachel(c, woche.length+(woche.length===1?" Termin diese Woche":" Termine diese Woche")+
+      kachel(c, woche.length+(istM
+        ? (woche.length===1?" Einbau diese Woche":" Einbauten diese Woche")
+        : (woche.length===1?" Termin diese Woche":" Termine diese Woche"))+
                 (offen?" · "+offen+" offen":""), istCloser)+'</div>';
     html+='<div class="naechstzeile">'+(naechst
       ? '<b>Als Nächstes</b> '+esc(name(naechst))+' in '+esc(ortText(naechst))+', '+
@@ -2052,7 +2301,8 @@ function renderHome(){
 
   html+='<div class="wege">'+
     '<button class="weg" data-go="kalender">Kalender<small>Tag, Woche und Monat</small></button>'+
-    (istCloser?'':'<button class="weg" data-go="meine">Meine Termine<small>Nur was du selbst gesetzt hast</small></button>')+
+    (istCloser?'<button class="weg" data-go="auftraege">Aufträge<small>Was aus deinen Verkäufen geworden ist</small></button>':'')+
+    (faehrtRaus?'':'<button class="weg" data-go="meine">Meine Termine<small>Nur was du selbst gesetzt hast</small></button>')+
   '</div>';
 
   $("view-home").innerHTML=html;
@@ -2117,7 +2367,7 @@ function renderWeek(){
   hb.classList.toggle("ruht",!!amHeute);       // steht man schon auf heute, tritt er zurück
   hb.title = amHeute ? "Du bist beim heutigen Tag" : "Zurück zum heutigen Tag";
   $("sperrBtn").hidden = !(S.me && (S.me.rolle==="closer" || istAdmin()));
-  $("neuImKalender").hidden = !(S.me && S.me.rolle==="closer");   // beim Closer ist unten Heute
+  $("neuImKalender").hidden = !(S.me && S.me.rolle==="closer");   // Monteure legen keine Termine an
   var today=heuteYmd, list=visible(), html="";
   for(var i=0;i<6;i++){
     var d=addDays(start,i), key=ymd(d);
@@ -2353,7 +2603,7 @@ function renderRaster(start,list,today){
       var st=STATUS[a.status]||STATUS.geplant;
       var mittel=hh>=44, gross=hh>=76, sehrGross=hh>=118;
       var adr=[a.strasse,[a.plz,a.ort].filter(Boolean).join(" ")].filter(Boolean).join(", ");
-      inhalt+='<button class="tblock st-'+esc(a.status)+(gross?" gross":"")+'" data-id="'+esc(a.id)+'" '+
+      inhalt+='<button class="tblock st-'+esc(a.status)+(gross?" gross":"")+(a.art==="einbau"?" einbau":"")+'" data-id="'+esc(a.id)+'" '+
         'style="top:'+top+'px;height:'+hh+'px;left:calc('+links+'% + 3px);width:calc('+breite+'% - 6px);--st:'+st.color+'">'+
         '<span class="stapel">'+
           (gross
@@ -2475,6 +2725,39 @@ function routeLink(adr){
              : ("https://www.google.com/maps/dir/?api=1&destination="+ziel+"&travelmode=driving");
 }
 
+/* Nach einem Termin, der stattgefunden hat: wurde verkauft?
+   Bei ja entsteht ein Auftrag. Der wartet auf die Genehmigung der Pflegekasse,
+   danach plant die Verwaltung den Einbau. */
+function fragVerkauft(a){
+  var box=document.querySelector(".panel-body"); if(!box) return;
+  if($("verkauftBox")) return;
+  var el=document.createElement("div");
+  el.id="verkauftBox";
+  el.className="warnbox";
+  el.style.marginBottom="14px";
+  el.innerHTML='<b>Wurde verkauft?</b><br>'+
+    '<span class="hint">Bei ja lege ich einen Auftrag an. Der geht zur Pflegekasse und wird nach der Genehmigung von der Verwaltung eingeplant.</span>'+
+    '<div class="field" style="margin:10px 0 8px"><label for="vk_umfang">Was wird gemacht?</label>'+
+      '<input id="vk_umfang" placeholder="z. B. Dusche und Wanne" autocomplete="off"></div>'+
+    '<div class="row" style="display:flex;gap:8px">'+
+      '<button class="btn primary" id="vk_ja">Ja, Auftrag anlegen</button>'+
+      '<button class="btn ghost" id="vk_nein">Nein</button></div>'+
+    '<p class="err" id="vk_err" hidden style="margin-top:8px"></p>';
+  box.insertBefore(el, box.firstChild);
+  $("vk_nein").onclick=function(){ el.remove(); };
+  $("vk_ja").onclick=function(){
+    var b=$("vk_ja"), e=$("vk_err");
+    b.disabled=true; e.hidden=true;
+    store.auftragAnlegen(a, $("vk_umfang").value.trim()).then(function(){
+      el.remove();
+      toast("Auftrag angelegt. Er steht jetzt bei der Verwaltung.");
+      logEvent("neu","Verkauft: "+name(a)+", Auftrag angelegt",a.id,"verkauf");
+    }).catch(function(err){
+      b.disabled=false; e.hidden=false; e.textContent=meldung(err);
+    });
+  };
+}
+
 function openAppt(id){
   var a=S.appts.filter(function(x){ return x.id===id; })[0]; if(!a) return;
   var d=parseYmd(a.datum);
@@ -2489,8 +2772,10 @@ function openAppt(id){
         var an=tagesAnfahrt(a);
         return an.min!=null?'<br><span class="hint">Anfahrt rund '+esc(minText(an.min))+' von '+esc(an.von)+'</span>':'';
       })()+'</dd>'+
+      (a.art==="einbau" ? '<dt>Art</dt><dd><span class="pg">Einbau</span></dd>' : '')+
+      (a.art==="einbau" ? '' :
       '<dt>Pflegegrad</dt><dd><span class="pg">'+esc(pgText(a))+'</span>'+
-        (a.pflegegrad==="antrag"?'<br><span class="hint">Bescheid steht noch aus, Einbau erst danach abrechnen.</span>':'')+'</dd>'+
+        (a.pflegegrad==="antrag"?'<br><span class="hint">Bescheid steht noch aus, Einbau erst danach abrechnen.</span>':'')+'</dd>')+
       '<dt>Wohnung</dt><dd>'+(a.wohnform==="miete"?"Miete, Vermieterzustimmung nötig":"Eigentum")+'</dd>'+
       '<dt>Entscheidung</dt><dd>'+(a.entscheider?"entscheidet allein":"Angehörige entscheiden mit, siehe Notiz")+'</dd>'+
       '<dt>Papiere</dt><dd>'+(a.papiere?"besprochen, liegen bereit":"noch nicht besprochen")+'</dd>'+
@@ -2526,6 +2811,7 @@ function openAppt(id){
       upsertAppt(a);
       logEvent("status",name(a)+" "+STATUS_SATZ[next]+" ("+deDate(parseYmd(a.datum))+")",a.id,"status");
       openAppt(a.id);
+      if(next==="stattgefunden" && a.art!=="einbau") fragVerkauft(a);
     };
   });
   $("moveBtn").onclick=function(){ openForm(a); };
@@ -3220,15 +3506,31 @@ function openWho(){
             '</div>';
           }).join("");
       }).join(""):'<p class="hint">Noch kein Kalender angelegt.</p>')+
+      // Monteure und Verwaltung hängen an keinem Closer, deshalb eigene Zeilen
+      (function(){
+        var rest=S.team.filter(function(m){ return m.rolle==="monteur"||m.rolle==="verwaltung"||m.rolle==="admin"; });
+        if(!rest.length) return "";
+        return '<div class="trennzeile">Weitere Zugänge</div>'+rest.map(function(m){
+          return '<div class="person-row" data-row="'+esc(m.id)+'">'+
+            '<span class="person" style="cursor:default"><span class="avatar">'+esc(initials(m.name))+'</span>'+
+            '<b>'+esc(m.name)+'</b><span class="r">'+esc(rollenName(m.rolle))+' · '+esc(m.benutzer||"")+'</span></span>'+
+            (m.id===S.me.id ? '' :
+              '<button class="del pwbtn" data-neupw="'+esc(m.id)+'" title="Neues Passwort">🔑</button>'+
+              '<button class="del" data-del="'+esc(m.id)+'" title="Zugang entziehen">✕</button>')+
+          '</div>';
+        }).join("");
+      })()+
       '</div>'+
       '<hr class="sep">'+
-      '<div><div class="sec-label" style="margin-bottom:6px">Closer oder Setter anlegen</div>'+
-        '<p class="hint" style="margin-bottom:8px">Ein Closer bekommt einen eigenen Kalender. Benutzername und Passwort vergibst du hier und gibst sie weiter.</p>'+
+      '<div><div class="sec-label" style="margin-bottom:6px">Zugang anlegen</div>'+
+        '<p class="hint" style="margin-bottom:8px">Closer und Monteur bekommen einen eigenen Kalender, der Setter arbeitet in einem fremden. Die Verwaltung sieht alles und plant die Einbauten. Benutzername und Passwort vergibst du hier und gibst sie weiter.</p>'+
         '<div class="two" style="margin-bottom:10px">'+
           '<div class="field"><label for="ad_name">Name</label><input id="ad_name" autocomplete="off"></div>'+
           '<div class="field"><label for="ad_rolle">Rolle</label><select id="ad_rolle">'+
             '<option value="closer">Closer mit eigenem Kalender</option>'+
             '<option value="setter">Setter in einem Kalender</option>'+
+            '<option value="monteur">Monteur mit eigenem Kalender</option>'+
+            '<option value="verwaltung">Verwaltung</option>'+
             '<option value="admin">Admin</option></select></div>'+
         '</div>'+
         '<div class="two" style="margin-bottom:10px">'+
@@ -3237,7 +3539,7 @@ function openWho(){
         '</div>'+
         '<div class="field" id="ad_kalWrap" style="margin-bottom:10px" hidden><label for="ad_kal">In welchem Kalender arbeitet der Setter?</label>'+
           '<select id="ad_kal">'+cs3.map(function(c){ return '<option value="'+esc(c.name)+'">'+esc(c.name)+'</option>'; }).join("")+'</select></div>'+
-        '<div class="field" id="ad_startWrap" style="margin-bottom:10px"><label for="ad_start">Startadresse des Closers</label>'+
+        '<div class="field" id="ad_startWrap" style="margin-bottom:10px"><label for="ad_start">Von wo fährt er los?</label>'+
           '<input id="ad_start" autocomplete="off" placeholder="Lindenstraße 6, 32657 Lemgo"></div>'+
         '<button class="btn primary" id="ad_go" style="width:100%">Zugang anlegen</button>'+
         '<p class="err" id="ad_err" hidden style="margin-top:8px"></p>'+
@@ -3334,7 +3636,7 @@ function openWho(){
     var rollenFelder=function(){
       var r=$("ad_rolle").value;
       $("ad_kalWrap").hidden = (r!=="setter");
-      $("ad_startWrap").hidden = (r!=="closer");
+      $("ad_startWrap").hidden = !(r==="closer"||r==="monteur");
     };
     $("ad_rolle").onchange=rollenFelder; rollenFelder();
     $("ad_user").onblur=function(){ this.value=benutzerNorm(this.value); };
@@ -3345,8 +3647,11 @@ function openWho(){
       if(!n){ err.hidden=false; err.textContent="Name fehlt."; return; }
       if(u.length<3||pw.length<6){ err.hidden=false; err.textContent="Benutzername mindestens drei, Passwort mindestens sechs Zeichen."; return; }
       var st=adresseZerlegen($("ad_start").value);
-      if(rolle==="closer"&&!koord(st.plz,st.ort)){
-        err.hidden=false; err.textContent="Ein Closer braucht eine Startadresse mit bekannter Postleitzahl."; return;
+      var mitKalender = (rolle==="closer"||rolle==="monteur");
+      if(mitKalender&&!koord(st.plz,st.ort)){
+        err.hidden=false;
+        err.textContent=(rolle==="monteur"?"Ein Monteur":"Ein Closer")+" braucht eine Startadresse mit bekannter Postleitzahl.";
+        return;
       }
       var kalWahl = rolle==="setter" ? ($("ad_kal")?$("ad_kal").value:"") : "";
       if(rolle==="setter"&&!kalIdVon(kalWahl)){
@@ -3357,14 +3662,14 @@ function openWho(){
       kontoAnlegen(u,pw).then(function(uid){
         neueId=uid;
         if(rolle==="setter") return kalIdVon(kalWahl);
-        if(rolle!=="closer") return null;
+        if(!mitKalender) return null;
         return store.kalenderAnlegen(n,st);
       }).then(function(kid){
         return sb.from("personen").insert({ id:neueId, name:n, rolle:rolle, kalender_id:kid||null });
       }).then(function(r){
         $("ad_go").disabled=false;
         if(r&&r.error) throw r.error;
-        logEvent("neu",n+" wurde als "+(rolle==="admin"?"Admin":(rolle==="setter"?"Setter":"Closer"))+" angelegt");
+        logEvent("neu",n+" wurde als "+rollenName(rolle)+" angelegt");
         S.neuerZugang={name:n,user:u,pw:pw};
         openWho(); toast(n+" ist angelegt.");
       }).catch(function(e){
