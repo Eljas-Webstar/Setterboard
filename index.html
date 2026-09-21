@@ -765,7 +765,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-21-1334";
+var VERSION = "2026-09-21-1350";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -922,7 +922,7 @@ function meldung(e){
 /* ---------------- state ---------------- */
 var S = {
   me:null, view:"home", weekStart:mondayOf(new Date()), tag:ymd(new Date()),
-  kalModus:null, wartet:null, anfragen:[], closerSuche:"", einladKal:null, auftraege:[],
+  kalModus:null, wartet:null, anfragen:[], closerSuche:"", einladKal:null, auftraege:[], feedSig:"",
   appts:[], team:[], activity:[], sperr:[], filterCloser:"alle",
   lastSeen:Number(LS.get("sb_lastSeen")||0),
   ready:false, offline:false, firstFeed:true, neuerZugang:null, adminKal:null, teamSig:""
@@ -1710,7 +1710,20 @@ function connect(){
     }
     S.firstFeed=false;
     renderBell(); renderSide();
-    if(document.querySelector('[data-overlay="feed"]')) openFeed(true);
+    // Das Panel nur neu bauen, wenn sich wirklich etwas geändert hat.
+    // Sonst springt die Liste bei jeder Runde nach oben.
+    var feedOffen=document.querySelector('[data-overlay="feed"]');
+    if(feedOffen){
+      var sig=sichtbareEvents().map(function(e){ return e.id+":"+e.ts; }).join("|");
+      if(sig!==S.feedSig){
+        S.feedSig=sig;
+        var koerper=feedOffen.querySelector(".panel-body");
+        var stand=koerper?koerper.scrollTop:0;
+        openFeed(true);
+        var neuKoerper=document.querySelector('[data-overlay="feed"] .panel-body');
+        if(neuKoerper) neuKoerper.scrollTop=stand;
+      }
+    }
   });
 
   renderBanner();
@@ -2058,9 +2071,15 @@ function renderAuftraege(){
       (sichtAufAlles()?" Genehmigte Aufträge planst du unten ein.":" Du siehst, was aus deinen Verkäufen geworden ist.")+
       '</p></div>';
 
+    if(sichtAufAlles()){
+      html+='<div class="ak-knoepfe" style="margin-bottom:16px">'+
+        '<button class="btn primary" id="aufNeu">Auftrag aus Termin anlegen</button></div>';
+    }
     if(!liste.length){
-      html+='<div class="banner"><span>📭</span><div>Noch kein Auftrag. Sobald ein Closer bei einem Termin auf verkauft setzt, steht er hier.</div></div>';
-      ziel.innerHTML=html; return;
+      html+='<div class="banner"><span>📭</span><div>Noch kein Auftrag. Sobald die IFBA einen Verkauf meldet, legst du ihn hier an.</div></div>';
+      ziel.innerHTML=html;
+      bindeAuftraege();
+      return;
     }
 
     AUFTRAG_STUFEN.forEach(function(st){
@@ -2103,6 +2122,8 @@ function auftragKarte(x){
 
 function bindeAuftraege(){
   var w=$("view-auftraege");
+  var an=$("aufNeu");
+  if(an) an.onclick=auftragAusTermin;
   Array.prototype.forEach.call(w.querySelectorAll("[data-auf-status]"),function(b){
     b.onclick=function(){
       b.disabled=true;
@@ -2115,6 +2136,50 @@ function bindeAuftraege(){
   });
   Array.prototype.forEach.call(w.querySelectorAll("[data-auf-planen]"),function(b){
     b.onclick=function(){ planeEinbau(b.dataset.aufPlanen); };
+  });
+}
+
+/* Die Verwaltung legt den Auftrag an, sobald die IFBA den Verkauf gemeldet hat.
+   Grundlage ist der Beratungstermin, dadurch bleiben Kunde, Adresse und
+   die Zurechnung zu Setter und Closer erhalten. */
+function auftragAusTermin(){
+  var schon={};
+  (S.auftraege||[]).forEach(function(x){ if(x.termin_id) schon[x.termin_id]=true; });
+  var frage=S.appts.filter(function(a){
+    return a.art!=="einbau" && (a.status==="stattgefunden"||a.status==="folgetermin") && !schon[a.id];
+  }).sort(function(a,b){ return startMs(b)-startMs(a); }).slice(0,40);
+
+  var koerper = frage.length
+    ? '<p class="hint" style="margin-bottom:10px">Welcher Termin hat zu einem Verkauf geführt?</p>'+
+      '<div class="people">'+frage.map(function(a){
+        return '<button class="person-row" data-termin="'+esc(a.id)+'" style="width:100%;text-align:left;cursor:pointer;border:0;background:transparent">'+
+          '<span class="person" style="cursor:pointer"><span class="avatar">'+esc(initials(name(a)))+'</span>'+
+          '<b>'+esc(name(a))+'</b><span class="r">'+esc(deDate(parseYmd(a.datum)))+' · '+esc(ortText(a)||"ohne Ort")+' · '+esc(a.closer||"")+'</span></span>'+
+        '</button>';
+      }).join("")+'</div>'+
+      '<div class="field" style="margin-top:12px"><label for="af_umfang">Was wird gemacht?</label>'+
+        '<input id="af_umfang" placeholder="z. B. Dusche und Wanne" autocomplete="off"></div>'+
+      '<p class="err" id="af_err" hidden style="margin-top:8px"></p>'
+    : '<div class="banner"><span>📭</span><div>Kein Termin steht auf stattgefunden. Der Closer muss das Ergebnis zuerst im Kalender setzen.</div></div>';
+
+  overlay("Auftrag anlegen",koerper,'<button class="btn ghost" id="af_zu">Schließen</button>',"auftrag");
+  $("af_zu").onclick=closeOverlay;
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-termin]"),function(b){
+    b.onclick=function(){
+      var a=S.appts.filter(function(x){ return x.id===b.dataset.termin; })[0];
+      if(!a) return;
+      b.disabled=true;
+      store.auftragAnlegen(a, ($("af_umfang")||{}).value||"").then(function(){
+        closeOverlay();
+        toast("Auftrag angelegt.");
+        logEvent("neu","Auftrag angelegt: "+name(a));
+        renderAuftraege();
+      }).catch(function(e){
+        b.disabled=false;
+        var f=$("af_err"); if(f){ f.hidden=false; f.textContent=meldung(e); }
+      });
+    };
   });
 }
 
@@ -2725,39 +2790,6 @@ function routeLink(adr){
              : ("https://www.google.com/maps/dir/?api=1&destination="+ziel+"&travelmode=driving");
 }
 
-/* Nach einem Termin, der stattgefunden hat: wurde verkauft?
-   Bei ja entsteht ein Auftrag. Der wartet auf die Genehmigung der Pflegekasse,
-   danach plant die Verwaltung den Einbau. */
-function fragVerkauft(a){
-  var box=document.querySelector(".panel-body"); if(!box) return;
-  if($("verkauftBox")) return;
-  var el=document.createElement("div");
-  el.id="verkauftBox";
-  el.className="warnbox";
-  el.style.marginBottom="14px";
-  el.innerHTML='<b>Wurde verkauft?</b><br>'+
-    '<span class="hint">Bei ja lege ich einen Auftrag an. Der geht zur Pflegekasse und wird nach der Genehmigung von der Verwaltung eingeplant.</span>'+
-    '<div class="field" style="margin:10px 0 8px"><label for="vk_umfang">Was wird gemacht?</label>'+
-      '<input id="vk_umfang" placeholder="z. B. Dusche und Wanne" autocomplete="off"></div>'+
-    '<div class="row" style="display:flex;gap:8px">'+
-      '<button class="btn primary" id="vk_ja">Ja, Auftrag anlegen</button>'+
-      '<button class="btn ghost" id="vk_nein">Nein</button></div>'+
-    '<p class="err" id="vk_err" hidden style="margin-top:8px"></p>';
-  box.insertBefore(el, box.firstChild);
-  $("vk_nein").onclick=function(){ el.remove(); };
-  $("vk_ja").onclick=function(){
-    var b=$("vk_ja"), e=$("vk_err");
-    b.disabled=true; e.hidden=true;
-    store.auftragAnlegen(a, $("vk_umfang").value.trim()).then(function(){
-      el.remove();
-      toast("Auftrag angelegt. Er steht jetzt bei der Verwaltung.");
-      logEvent("neu","Verkauft: "+name(a)+", Auftrag angelegt",a.id,"verkauf");
-    }).catch(function(err){
-      b.disabled=false; e.hidden=false; e.textContent=meldung(err);
-    });
-  };
-}
-
 function openAppt(id){
   var a=S.appts.filter(function(x){ return x.id===id; })[0]; if(!a) return;
   var d=parseYmd(a.datum);
@@ -2811,7 +2843,6 @@ function openAppt(id){
       upsertAppt(a);
       logEvent("status",name(a)+" "+STATUS_SATZ[next]+" ("+deDate(parseYmd(a.datum))+")",a.id,"status");
       openAppt(a.id);
-      if(next==="stattgefunden" && a.art!=="einbau") fragVerkauft(a);
     };
   });
   $("moveBtn").onclick=function(){ openForm(a); };
@@ -3813,6 +3844,7 @@ function neuerungenHtml(){
 }
 
 function openFeed(keep){
+  S.feedSig=sichtbareEvents().map(function(e){ return e.id+":"+e.ts; }).join("|");
   var html=neuerungenHtml()+feedHtml(0);
   overlay("Aktivität",html,
     '<button class="btn" id="simBtn">Closer simulieren</button>'+

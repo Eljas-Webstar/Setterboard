@@ -50,6 +50,19 @@ Benutzername wird intern zu `benutzer@setterboard.local`.
   bekommt nichts aus Kalender B. Bei "kommt nichts an" immer zuerst
   `push_geraete.kalender_id` gegen `push_warteschlange.kalender_id` prüfen.
 
+## Offen, für später vorgemerkt
+
+**Route und Fahrzeit über einen echten Dienst.** Heute ist beides selbst gerechnet:
+Luftlinie mal Umwegfaktor, Tempo nach Entfernung gestaffelt. Kein Verkehr, keine echten Straßen.
+Der Knopf "Losfahren" öffnet nur Maps mit dem Ziel, den Startpunkt setzt die Karten-App selbst.
+Was fehlt:
+- Standort des Geräts abfragen und als echten Start verwenden, mit dem hinterlegten
+  Startpunkt als Rückfall, wenn der Nutzer den Zugriff verweigert
+- echte Fahrzeit mit Stau, dafür braucht es die Google Routes API oder einen
+  vergleichbaren Dienst, kostenpflichtig ab einer gewissen Zahl von Abfragen
+- die Fahrzeitwarnung im Kalender würde dann auf echten Werten beruhen statt auf einer Schätzung
+Vor der Umsetzung klären, wie viele Abfragen am Tag anfallen und was das kostet.
+
 ## Eigener Supabase-Zugang
 
 Token liegt in `~/.config/setterboard/.env` (`SUPABASE_PAT`, `SUPABASE_REF`).
