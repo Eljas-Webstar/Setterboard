@@ -196,6 +196,14 @@ html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
 .mpunkte{display:flex;gap:3px;flex-wrap:wrap;margin-top:1px}
 .mpunkte i{width:7px;height:7px;border-radius:999px;background:var(--st,var(--accent));display:block}
 .weekwrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+/* In der Kalenderansicht wandert nur der Inhalt, die Steuerleiste bleibt oben kleben */
+body.kalenderansicht .app{height:100vh;height:100dvh;min-height:0}
+body.kalenderansicht main{min-height:0;overflow:hidden;display:flex;flex-direction:column;padding-block:0}
+body.kalenderansicht #view-week{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;padding-top:0;padding-bottom:96px}
+body.kalenderansicht #pushBanner{margin-top:16px}
+body.kalenderansicht .weekbar{position:sticky;top:0;z-index:20;background:var(--paper);
+  padding-block:8px;margin-bottom:8px}
 .weekmain{min-width:0}
 .side{
   position:sticky;top:70px;background:var(--surface);border:1px solid var(--line);
@@ -640,7 +648,7 @@ main{padding-bottom:86px}
       <button class="brand" id="brandBtn" title="Zur Startseite"><b>Setterboard</b></button>
       <div class="suche" id="sucheBox">
         <span class="lupe" aria-hidden="true">🔍</span>
-        <input id="suchFeld" type="search" placeholder="Name oder Nummer" autocomplete="off" spellcheck="false" aria-label="Termin suchen">
+        <input id="suchFeld" type="search" placeholder="Kunde suchen, Name oder Telefon" autocomplete="off" spellcheck="false" aria-label="Kunde suchen">
         <div class="suchliste" id="suchListe" hidden></div>
       </div>
       <div class="spacer"></div>
@@ -781,7 +789,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-21-1610";
+var VERSION = "2026-09-21-1627";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -938,7 +946,7 @@ function meldung(e){
 /* ---------------- state ---------------- */
 var S = {
   me:null, view:"home", weekStart:mondayOf(new Date()), tag:ymd(new Date()),
-  kalModus:null, wartet:null, freigabe:null, freigaben:[], anfragen:[], closerSuche:"", einladKal:null, auftraege:[], feedSig:"",
+  kalModus:null, wartet:null, freigabe:null, freigaben:[], letzteSicht:null, anfragen:[], closerSuche:"", einladKal:null, auftraege:[], feedSig:"",
   appts:[], team:[], activity:[], sperr:[], filterCloser:"alle",
   lastSeen:Number(LS.get("sb_lastSeen")||0),
   ready:false, offline:false, firstFeed:true, neuerZugang:null, adminKal:null, teamSig:""
@@ -1333,12 +1341,24 @@ function zeigeFassungsleiste(){
     '<button class="btn primary" id="fassungLaden">Jetzt laden</button>'+
     '<button class="btn ghost" id="fassungSpaeter">Später</button>';
   document.body.appendChild(b);
-  $("fassungLaden").onclick=function(){ neuLaden(); };
+  $("fassungLaden").onclick=function(){
+    $("fassungLaden").disabled=true;
+    $("fassungSpaeter").hidden=true;
+    b.querySelector("span").textContent="Lade neu \u2026";
+    neuLaden();
+  };
   $("fassungSpaeter").onclick=function(){ b.remove(); };
 }
 function neuLaden(){
   // Hintergrunddienst und Zwischenspeicher mit erneuern, sonst bleibt die alte Fassung hängen
-  var fertig=function(){ location.reload(); };
+  var schon=false;
+  var fertig=function(){
+    if(schon) return; schon=true;
+    // Mit Zeitstempel laden, sonst holt der Browser die alte Fassung aus dem Speicher
+    location.replace(location.pathname+"?v="+Date.now());
+  };
+  // Falls das Aufräumen hängt, nach drei Sekunden trotzdem neu laden
+  setTimeout(fertig,3000);
   try{
     if("caches" in window){
       caches.keys().then(function(k){ return Promise.all(k.map(function(n){ return caches.delete(n); })); })
@@ -2153,6 +2173,14 @@ function render(){
   $("tab-home").setAttribute("aria-selected",String(S.view==="home"));
   $("tab-week").setAttribute("aria-selected",String(S.view==="week"));
   $("heuteTab").setAttribute("aria-selected",String(S.view==="heute"));
+  // Im Kalender scrollt nur das Raster, Kopf und Datumsleiste bleiben stehen
+  document.body.classList.toggle("kalenderansicht", S.view==="week");
+  // Beim Wechsel der Ansicht immer oben anfangen, sonst hängt die Seite verschoben
+  if(S.letzteSicht!==S.view){
+    S.letzteSicht=S.view;
+    try{ window.scrollTo(0,0); }catch(e){}
+    var vw=$("view-week"); if(vw) vw.scrollTop=0;
+  }
   if(S.view==="home") renderHome();
   else if(S.view==="heute") renderHeute();
   else if(S.view==="auftraege") renderAuftraege();
@@ -2438,6 +2466,7 @@ function renderHomeAdmin(){
       : 'Adminzugang. Du siehst alle Kalender, ihre Setter und Zugänge.')+'</p></div>';
 
   html+=kalenderSuchfeld(cs.length);
+  if(cs.length) html+='<div class="sec-label" style="margin:14px 0 6px">Closer</div>';
   html+='<div class="kalreihe">'+(sichtbar.length?sichtbar.map(function(c){
     var t=S.appts.filter(function(a){ return a.closer===c.name&&a.status!=="abgesagt"; }).length;
     var setter=S.team.filter(function(m){ return m.rolle==="setter"&&m.gehoertZu===c.name; }).length;
