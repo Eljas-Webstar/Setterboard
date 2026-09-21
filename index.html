@@ -644,6 +644,7 @@ main{padding-bottom:86px}
 }
 @media (min-width:900px){ .week{display:none!important} }
 .tagkopf{display:none}
+.calhead.tagkopf-zeile{grid-template-columns:var(--axis) minmax(0,1fr)}
 @media (max-width:640px){
   /* Auf dem Handy liegen die Kalender als volle Zeilen untereinander */
   .kalreihe{flex-direction:column;gap:8px}
@@ -807,7 +808,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-21-1635";
+var VERSION = "2026-09-21-1722";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -2691,10 +2692,19 @@ function renderTagRaster(){
   var anf=anfahrten(liste);
   var VON=RULES.openHour-1, BIS=RULES.closeHour+2, H=64, hoehe=(BIS-VON)*H;
 
-  var kopf='<div class="tagkopf">'+
-    '<button class="tagnav" id="tagZurueck">‹</button>'+
-    '<div class="tagtitel"><b>'+DOW[(d.getDay()+6)%7]+'</b><span>'+deDate(d)+(S.tag===heute?" · heute":"")+'</span></div>'+
-    '<button class="tagnav" id="tagVor">›</button>'+
+  var tagFahrt=(function(){
+    var summe=0, ok=false;
+    liste.forEach(function(x){ var f=anf[x.id]; if(f!=null){ summe+=f; ok=true; } });
+    return ok?summe:null;
+  })();
+  var kopf='<div class="calhead tagkopf-zeile">'+
+    '<div class="hc"></div>'+
+    '<div class="hc'+(S.tag===heute?" today":"")+'">'+
+      '<span class="dow">'+DOW[(d.getDay()+6)%7]+'</span>'+
+      '<span class="dnum">'+esc(deDate(d))+'</span>'+
+      (S.tag===heute?'<span class="dnum">· heute</span>':'')+
+      (tagFahrt!=null?'<span class="fahrt-tag" title="geschätzte Fahrzeit an dem Tag">🚗 '+esc(minText(tagFahrt))+'</span>':'')+
+    '</div>'+
   '</div>';
 
   var achse='<div class="axis" style="height:'+hoehe+'px">';
@@ -2731,8 +2741,6 @@ function renderTagRaster(){
 
   box.innerHTML=kopf+'<div class="calbody tagbody">'+achse+
     '<div class="daycol" style="height:'+hoehe+'px">'+inhalt+'</div></div>';
-  $("tagZurueck").onclick=function(){ S.tag=ymd(addDays(parseYmd(S.tag),-1)); S.weekStart=mondayOf(parseYmd(S.tag)); render(); };
-  $("tagVor").onclick=function(){ S.tag=ymd(addDays(parseYmd(S.tag),1)); S.weekStart=mondayOf(parseYmd(S.tag)); render(); };
   Array.prototype.forEach.call(box.querySelectorAll(".tblock"),function(b){
     b.onclick=function(){ openAppt(b.dataset.id); };
   });
