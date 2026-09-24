@@ -19,6 +19,8 @@ neu = re.sub(r'var VERSION = "[^"]*";', 'var VERSION = "%s";' % stand, s, count=
 open(pfad, 'w', encoding='utf-8').write(neu)
 PY
 # Versionsdatei mit den Punkten, die im Feed erscheinen.
+# Ohne Punkte aufrufen, wenn niemand sehen soll, was geändert wurde:
+#   ./hochladen.sh "" 
 # Aufruf:  ./hochladen.sh "Titel" "Punkt eins" "Punkt zwei" ...
 python3 - "$STAND" "$@" <<'PY2'
 import json, sys
