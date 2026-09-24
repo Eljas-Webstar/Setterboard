@@ -435,6 +435,20 @@ body.panel-offen{overflow:hidden;position:relative;width:100%}
 .ak-zeile.hint{font-size:12px;color:var(--ink-3)}
 .ak-knoepfe{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .ak-knoepfe .btn{min-height:40px}
+#adrVors{display:block;margin-top:6px}
+.adr-ok{font-size:12.5px;color:var(--ok);font-weight:600;padding:2px 0}
+.adr-laeuft{font-size:12.5px;color:var(--ink-3);padding:2px 0}
+.adr-warn{font-size:12.5px;color:var(--warn);font-weight:600;padding:2px 0 6px}
+.adr-liste{display:flex;flex-direction:column;gap:6px}
+.adr-vor{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;
+  min-height:44px;padding:8px 11px;text-align:left;cursor:pointer;
+  border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
+.adr-vor b{font-size:14.5px;font-weight:700}
+.adr-vor span{font-family:var(--font-mono);font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.adr-vor .adr-marke{font-family:var(--font-body);font-size:11.5px;color:var(--ink-3);font-weight:600}
+.adr-vor.nah{border-color:var(--warn)}
+.adr-vor.nah .adr-marke{color:var(--warn)}
+.adr-vor:hover{border-color:var(--accent)}
 .gruppen{display:flex;flex-direction:column;gap:8px}
 .gruppe{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
 .gruppe>summary{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;
@@ -808,7 +822,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-24-1850";
+var VERSION = "2026-09-24-1908";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1423,6 +1437,33 @@ var FAHRT = { umweg:1.35, puffer:5 }; // Umwegfaktor Luftlinie zu Straße, Minut
 
 function normOrt(o){
   return String(o||"").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]/g,"");
+}
+
+/* Straßennamen vergleichbar machen: str/straße/strasse sind dasselbe */
+function normStr(t){
+  return String(t||"").toLowerCase()
+    .replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss")
+    .replace(/(str|strasse|straße)\b\.?/g,"strasse")
+    .replace(/[^a-z0-9]/g,"");
+}
+
+/* Wie viele Buchstaben müsste man ändern, damit aus a b wird.
+   Damit erkennen wir Hörfehler am Telefon: ein Buchstabe Unterschied ist fast immer einer. */
+function abstand(a,b){
+  a=normStr(a); b=normStr(b);
+  if(a===b) return 0;
+  var m=a.length, nn=b.length;
+  if(!m||!nn) return Math.max(m,nn);
+  var vor=[], jetzt=[], i, j;
+  for(j=0;j<=nn;j++) vor[j]=j;
+  for(i=1;i<=m;i++){
+    jetzt=[i];
+    for(j=1;j<=nn;j++){
+      jetzt[j]=Math.min(vor[j]+1, jetzt[j-1]+1, vor[j-1]+(a.charAt(i-1)===b.charAt(j-1)?0:1));
+    }
+    vor=jetzt;
+  }
+  return vor[nn];
 }
 function koord(plzWert,ort){
   var k=plzKoord(plzWert);
@@ -2242,7 +2283,7 @@ function renderHeute(){
         (a.hinweise&&a.hinweise.length?'<div class="hinweise" style="margin-top:2px">'+
           a.hinweise.slice(0,4).map(function(h){ return '<span class="marke">'+esc(h)+'</span>'; }).join("")+'</div>':'')+
         '<div class="callrow" style="margin-top:9px">'+
-          (adr?'<a class="haupt" href="'+esc(routeLink(adr))+'" target="_blank" rel="noopener">🚗 Losfahren</a>':'')+
+          (adr?'<a class="haupt" href="'+esc(routeLink(adr))+'" data-route="'+esc(adr)+'" target="_blank" rel="noopener">🚗 Losfahren</a>':'')+
           (tel?'<a href="tel:'+esc(tel)+'">📞 Anrufen</a>':'')+
           '<a href="#" data-oeffnen="'+esc(a.id)+'">Ergebnis</a>'+
         '</div>'+
@@ -2996,13 +3037,42 @@ function zugEnde(){
 }
 
 /* ---------------- Termin-Detail ---------------- */
-/* Route ab dem aktuellen Standort. Ohne Startpunkt setzt die Karte "Mein Standort" ein. */
+/* Route ab dem aktuellen Standort. Ohne Startpunkt setzt die Karte "Mein Standort" ein.
+   Auf dem iPhone wird zuerst die Google-Maps-App versucht. Kommt die nicht,
+   weil sie nicht installiert ist, springt es nach kurzer Zeit auf Apple Maps. */
+function istIOS(){ return /iPad|iPhone|iPod/.test(navigator.userAgent||""); }
+
 function routeLink(adr){
   var ziel=encodeURIComponent(adr);
-  var iOS=/iPad|iPhone|iPod/.test(navigator.userAgent||"");
-  return iOS ? ("https://maps.apple.com/?daddr="+ziel+"&dirflg=d")
-             : ("https://www.google.com/maps/dir/?api=1&destination="+ziel+"&travelmode=driving");
+  // Der href ist der Rückfall, wenn das Antippen nicht über unseren Handler läuft
+  return istIOS() ? ("https://maps.apple.com/?daddr="+ziel+"&dirflg=d")
+                  : ("https://www.google.com/maps/dir/?api=1&destination="+ziel+"&travelmode=driving");
 }
+
+function routeStarten(adr){
+  var ziel=encodeURIComponent(adr);
+  var google="https://www.google.com/maps/dir/?api=1&destination="+ziel+"&travelmode=driving";
+  if(!istIOS()){ window.open(google,"_blank","noopener"); return; }
+
+  var weg=false;
+  var merken=function(){ if(document.hidden) weg=true; };
+  document.addEventListener("visibilitychange",merken);
+  // Eigenes Adressschema der Google-Maps-App
+  window.location.href="comgooglemaps://?daddr="+ziel+"&directionsmode=driving";
+  setTimeout(function(){
+    document.removeEventListener("visibilitychange",merken);
+    if(weg||document.hidden) return;          // Google Maps hat übernommen
+    window.location.href="https://maps.apple.com/?daddr="+ziel+"&dirflg=d";
+  },800);
+}
+
+// Alle Routenlinks laufen über einen Handler, damit die Wahl der Karten-App greift
+document.addEventListener("click",function(e){
+  var a=e.target && e.target.closest ? e.target.closest("[data-route]") : null;
+  if(!a) return;
+  e.preventDefault();
+  routeStarten(a.getAttribute("data-route"));
+},true);
 
 function openAppt(id){
   var a=S.appts.filter(function(x){ return x.id===id; })[0]; if(!a) return;
@@ -3014,7 +3084,7 @@ function openAppt(id){
       '<dt>Wann</dt><dd><b>'+DOW[(d.getDay()+6)%7]+', '+deDate(d)+'</b><br><span class="mono">'+esc(a.zeit)+' Uhr · '+esc(a.dauer||60)+' Min</span></dd>'+
       '<dt>Kunde</dt><dd><b>'+esc(name(a))+'</b></dd>'+
       '<dt>Telefon</dt><dd class="mono">'+(tel?'<a class="tipp" href="tel:'+esc(tel)+'">'+esc(a.telefon)+'</a>':"—")+'</dd>'+
-      '<dt>Adresse</dt><dd>'+(adr?'<a class="tipp" href="'+esc(routeLink(adr))+'" target="_blank" rel="noopener">'+esc(adr)+'</a>':"—")+(function(){
+      '<dt>Adresse</dt><dd>'+(adr?'<a class="tipp" href="'+esc(routeLink(adr))+'" data-route="'+esc(adr)+'" target="_blank" rel="noopener">'+esc(adr)+'</a>':"—")+(function(){
         var an=tagesAnfahrt(a);
         return an.min!=null?'<br><span class="hint">Anfahrt rund '+esc(minText(an.min))+' von '+esc(an.von)+'</span>':'';
       })()+'</dd>'+
@@ -3029,7 +3099,7 @@ function openAppt(id){
       '<dt>Closer</dt><dd>'+esc(a.closer)+'</dd>'+
     '</div>'+
     '<div class="callrow">'+
-      (adr?'<a class="haupt" href="'+esc(routeLink(adr))+'" target="_blank" rel="noopener">🚗 Losfahren</a>':'')+
+      (adr?'<a class="haupt" href="'+esc(routeLink(adr))+'" data-route="'+esc(adr)+'" target="_blank" rel="noopener">🚗 Losfahren</a>':'')+
       (tel?'<a href="tel:'+esc(tel)+'">📞 Anrufen</a><a href="sms:'+esc(tel)+'">✉️ SMS</a>':'')+
     '</div>'+
     ((a.hinweise&&a.hinweise.length)?'<div><div class="sec-label" style="margin-bottom:6px">Aus dem Telefonat</div>'+
@@ -3134,7 +3204,8 @@ function openForm(edit){
       '<span class="hint" id="telHint"></span></div>'+
     '<div class="field"><label for="f_adr">Adresse</label>'+
       '<input id="f_adr" autocomplete="off" placeholder="Deisterstr 7, 30890 Barsinghausen" value="'+esc(adresseEineZeile(a))+'">'+
-      '<span class="hint" id="plzHint"></span></div>'+
+      '<span class="hint" id="plzHint"></span>'+
+      '<div id="adrVors"></div></div>'+
     '<hr class="sep">'+
     '<div class="sec-label" style="margin-bottom:2px">Wann passt es dem Kunden?</div>'+
     '<div class="field" id="vorsFeld" hidden><label>Diese Termine kosten die wenigste Fahrt</label>'+
@@ -3218,6 +3289,132 @@ function openForm(edit){
     else if(ad.ort&&ORTE[normOrt(ad.ort)]){ h.textContent="Erkannt: "+teile.join(" · ")+". PLZ unbekannt, ich rechne mit "+ad.ort+"."; h.style.color="var(--warn)"; }
     else if(ad.plz){ h.textContent="PLZ "+ad.plz+" gibt es so nicht. Bitte prüfen, sonst fehlt die Fahrzeit."; h.style.color="var(--bad)"; }
     else { h.textContent="Erkannt: "+teile.join(" · ")+". Ohne PLZ kann ich die Fahrzeit nicht rechnen."; h.style.color="var(--warn)"; }
+  }
+
+  /* Gibt es die Adresse wirklich? Gefragt wird OpenStreetMap, das kostet nichts.
+     Übermittelt wird nur die Adresse, kein Name und kein Pflegegrad.
+     Findet sich nichts, suchen wir ähnlich klingende Adressen in der Nähe,
+     weil am Telefon oft "Am Markt" statt "Am Alten Markt" ankommt. */
+  var adrTimer=null, adrLauf=0;
+
+  function adrSpaeter(){
+    if(adrTimer) clearTimeout(adrTimer);
+    adrTimer=setTimeout(adrPruefen,900);
+  }
+
+  function adrZeile(x){
+    var ad=x.address||{};
+    var str=[ad.road||ad.pedestrian||ad.footway||"", ad.house_number||""].filter(Boolean).join(" ");
+    var ort=ad.city||ad.town||ad.village||ad.municipality||ad.suburb||"";
+    var plz=ad.postcode||"";
+    if(!str) return null;
+    return { text:[str,[plz,ort].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+             strasse:str, plz:plz, ort:ort };
+  }
+
+  function photonZeile(f){
+    var p=f.properties||{};
+    var str=[p.street||p.name||"", p.housenumber||""].filter(Boolean).join(" ");
+    if(!p.street && !p.housenumber) return null;
+    var ort=p.city||p.town||p.village||p.district||"";
+    return { text:[str,[p.postcode||"",ort].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+             strasse:str, plz:p.postcode||"", ort:ort };
+  }
+
+  function adrVorschlaege(liste,kopf){
+    var box=$("adrVors"); if(!box) return;
+    if(!liste.length){
+      box.innerHTML='<div class="adr-warn">Diese Adresse finde ich nicht und auch nichts Ähnliches. '+
+        'Beim Kunden nachfragen, buchstabieren lassen. Speichern geht trotzdem.</div>';
+      return;
+    }
+    var ad=adrJetzt();
+    // Dieselbe Adresse kommt oft mehrfach zurück, einmal reicht
+    var gesehen={};
+    liste=liste.filter(function(v){
+      var k=normStr(v.text);
+      if(gesehen[k]) return false;
+      gesehen[k]=1; return true;
+    });
+    // Gleiche Postleitzahl nach oben, dann nach Ähnlichkeit des Straßennamens
+    liste.forEach(function(v){
+      v.gleichePlz = !!(ad.plz && v.plz && ad.plz===v.plz);
+      v.diff = abstand(ad.strasse, v.strasse);
+    });
+    liste.sort(function(x,y){
+      if(x.gleichePlz!==y.gleichePlz) return x.gleichePlz?-1:1;
+      return x.diff-y.diff;
+    });
+
+    box.innerHTML='<div class="adr-warn">'+esc(kopf)+'</div>'+
+      '<div class="adr-liste">'+liste.map(function(v,i){
+        var marken=[];
+        if(v.plz) marken.push(v.gleichePlz?"gleiche PLZ "+v.plz:"andere PLZ "+v.plz);
+        if(v.diff===1) marken.push("nur ein Buchstabe anders");
+        else if(v.diff>1&&v.diff<=3) marken.push(v.diff+" Buchstaben anders");
+        return '<button type="button" class="adr-vor'+(v.gleichePlz&&v.diff<=3?" nah":"")+'" data-nr="'+i+'">'+
+          '<b>'+esc(v.strasse)+'</b>'+
+          '<span>'+esc([v.plz,v.ort].filter(Boolean).join(" ")||"ohne PLZ")+'</span>'+
+          (marken.length?'<span class="adr-marke">'+esc(marken.join(" · "))+'</span>':'')+
+        '</button>';
+      }).join("")+'</div>';
+    Array.prototype.forEach.call(box.querySelectorAll(".adr-vor"),function(b){
+      b.onclick=function(){
+        $("f_adr").value=liste[+b.dataset.nr].text;
+        box.innerHTML="";
+        plzCheck(); drawZeiten(); vorschlaegeSpaeter();
+        adrSpaeter();
+      };
+    });
+  }
+
+  function adrPruefen(){
+    var ad=adrJetzt(), box=$("adrVors");
+    if(!box) return;
+    // Erst ab Hausnummer und Ortsangabe lohnt sich das Nachsehen
+    if(!ad.strasse || !/\d/.test(ad.strasse) || (!ad.plz && !ad.ort)){ box.innerHTML=""; return; }
+    var lauf=++adrLauf;
+    box.innerHTML='<div class="adr-laeuft">Schaue nach, ob es die Adresse gibt …</div>';
+
+    var p="format=json&addressdetails=1&limit=5&countrycodes=de&street="+encodeURIComponent(ad.strasse);
+    if(ad.plz) p+="&postalcode="+encodeURIComponent(ad.plz);
+    if(ad.ort) p+="&city="+encodeURIComponent(ad.ort);
+
+    fetch("https://nominatim.openstreetmap.org/search?"+p,{headers:{Accept:"application/json"}})
+      .then(function(r){ return r.ok?r.json():[]; })
+      .then(function(treffer){
+        if(lauf!==adrLauf) return;
+        var gut=(treffer||[]).map(adrZeile).filter(Boolean);
+        var wunsch=normStr(ad.strasse);
+        var exakt=gut.filter(function(v){ return normStr(v.strasse)===wunsch; })[0];
+        if(exakt){
+          box.innerHTML='<div class="adr-ok">Adresse gefunden: '+esc(exakt.text)+'</div>';
+          return;
+        }
+        if(gut.length){ adrVorschlaege(gut,"Diese Adresse finde ich so nicht. Meintest du:"); return; }
+        return adrAehnlich(ad,lauf);
+      })
+      .catch(function(){
+        if(lauf!==adrLauf) return;
+        box.innerHTML='<div class="adr-laeuft">Adresse konnte gerade nicht geprüft werden.</div>';
+      });
+  }
+
+  // Zweiter Anlauf, diesmal tippfehlertolerant und im Umkreis der Postleitzahl
+  function adrAehnlich(ad,lauf){
+    var box=$("adrVors");
+    var u="https://photon.komoot.io/api/?limit=6&lang=de&q="+
+      encodeURIComponent(ad.strasse+(ad.ort?" "+ad.ort:""));
+    var k=ad.plz?plzKoord(ad.plz):null;
+    if(k) u+="&lat="+k[0]+"&lon="+k[1];
+    return fetch(u).then(function(r){ return r.ok?r.json():null; }).then(function(d){
+      if(lauf!==adrLauf) return;
+      var liste=((d&&d.features)||[]).map(photonZeile).filter(Boolean).slice(0,5);
+      adrVorschlaege(liste,"Diese Adresse finde ich nicht. Ähnlich klingt:");
+    }).catch(function(){
+      if(lauf!==adrLauf) return;
+      box.innerHTML='<div class="adr-laeuft">Adresse konnte gerade nicht geprüft werden.</div>';
+    });
   }
 
   function quali(){
@@ -3423,7 +3620,8 @@ function openForm(edit){
   $("f_zeit").onchange=drawZeiten;
   $("f_zeit").onblur=drawZeiten;
   $("f_dauer").onchange=drawZeiten;
-  $("f_adr").oninput=function(){ plzCheck(); drawZeiten(); vorschlaegeSpaeter(); };
+  $("f_adr").oninput=function(){ plzCheck(); drawZeiten(); vorschlaegeSpaeter(); adrSpaeter(); };
+  $("f_adr").onblur=function(){ adrPruefen(); };
   $("f_dauer").addEventListener("change",function(){ drawVorschlaege(true); });
   drawVorschlaege();
   var gewaehlt=(a.hinweise||[]).slice();
