@@ -78,6 +78,31 @@ Neue Texte also immer Applikateur, neuer Code weiter `monteur`.
   bekommt nichts aus Kalender B. Bei "kommt nichts an" immer zuerst
   `push_geraete.kalender_id` gegen `push_warteschlange.kalender_id` prüfen.
 
+## Route und Adressprüfung (Stand 24.09.2026)
+
+**Losfahren** öffnet die Karten-App ohne Startpunkt, dadurch setzt sie selbst
+"Mein Standort" ein und rechnet die Fahrzeit mit aktuellem Verkehr. Dafür braucht
+es keine kostenpflichtige Schnittstelle. Auf dem iPhone versucht `routeStarten()`
+zuerst `comgooglemaps://` und springt nach 800 ms auf Apple Maps, falls die
+Google-Maps-App fehlt. Erkannt wird das über `visibilitychange`.
+
+**Adressprüfung** im Terminformular, `adrPruefen()`:
+1. Nominatim strukturiert (street, postalcode, city, countrycodes=de)
+2. Straßenname gleich? Dann grüner Haken
+3. Andere Treffer? Als Vorschläge anbieten
+4. Nichts gefunden? Photon (komoot) mit lat/lon aus der eigenen PLZ-Tabelle,
+   das verträgt Tippfehler
+5. Vorschläge werden sortiert: gleiche PLZ zuerst, dann nach `abstand()`,
+   einer Levenshtein-Distanz über normalisierte Straßennamen (`str` = `straße`)
+
+Beide Dienste sind kostenlos und ohne Schlüssel, Grenze etwa eine Anfrage je Sekunde.
+Gesucht wird erst ab Hausnummer und Ortsangabe, verzögert um 900 ms.
+Übermittelt wird nur die Adresse, kein Name und kein Pflegegrad.
+
+Echter Fall aus dem Test: "Am Markt 3, 31515 Wunstorf" gibt es nicht.
+Google Maps biegt stillschweigend auf Gehrden um, die Prüfung schlägt
+"Am Alten Markt 3, 31515 Wunstorf" vor.
+
 ## Offen, für später vorgemerkt
 
 **Route und Fahrzeit über einen echten Dienst.** Heute ist beides selbst gerechnet:
