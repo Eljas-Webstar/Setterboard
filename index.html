@@ -822,7 +822,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-24-1908";
+var VERSION = "2026-09-24-1918";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1435,6 +1435,9 @@ var ORTE = {"premierefernsehengmbhcokgaktionsc":[48.192,11.649],"cevhandelsimmob
 var BASIS = [52.375,9.739];          // Mitte Hannover, von dort startet und endet der Tag
 var FAHRT = { umweg:1.35, puffer:5 }; // Umwegfaktor Luftlinie zu Straße, Minuten fürs Parken
 
+/* Einmal geholte Straßenlisten je Postleitzahl, damit Overpass nicht mehrfach gefragt wird */
+var STRASSEN={};
+
 function normOrt(o){
   return String(o||"").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]/g,"");
 }
@@ -1447,10 +1450,51 @@ function normStr(t){
     .replace(/[^a-z0-9]/g,"");
 }
 
+/* "Ostertor 12" in Name und Hausnummer zerlegen */
+function strasseTeilen(t){
+  var m=String(t||"").trim().match(/^(.*?)[\s,]+(\d+\s*[a-zA-Z]?)$/);
+  if(m) return { name:m[1].trim(), nr:m[2].replace(/\s+/g,"") };
+  return { name:String(t||"").trim(), nr:"" };
+}
+
+/* Klang statt Schreibweise: Kölner Phonetik.
+   Damit klingen Astator und Ostertor fast gleich, obwohl sie sich anders schreiben.
+   Genau der Fehler, der am Telefon entsteht. */
+function klang(t){
+  t=String(t||"").toLowerCase()
+    .replace(/ä/g,"a").replace(/ö/g,"o").replace(/ü/g,"u").replace(/ß/g,"ss")
+    .replace(/[^a-z]/g,"");
+  var code="", i, c, vor, nach;
+  for(i=0;i<t.length;i++){
+    c=t.charAt(i); vor=t.charAt(i-1)||""; nach=t.charAt(i+1)||"";
+    if("aeijouy".indexOf(c)>=0) code+="0";
+    else if(c==="h") continue;
+    else if(c==="b") code+="1";
+    else if(c==="p") code+=(nach==="h")?"3":"1";
+    else if(c==="d"||c==="t") code+=("csz".indexOf(nach)>=0)?"8":"2";
+    else if("fvw".indexOf(c)>=0) code+="3";
+    else if("gkq".indexOf(c)>=0) code+="4";
+    else if(c==="x") code+=("ckq".indexOf(vor)>=0)?"8":"48";
+    else if(c==="l") code+="5";
+    else if(c==="m"||c==="n") code+="6";
+    else if(c==="r") code+="7";
+    else if(c==="s"||c==="z") code+="8";
+    else if(c==="c"){
+      if(i===0) code+=("ahkloqrux".indexOf(nach)>=0)?"4":"8";
+      else if("sz".indexOf(vor)>=0) code+="8";
+      else code+=("ahkoqux".indexOf(nach)>=0)?"4":"8";
+    }
+  }
+  // gleiche Ziffern nebeneinander zusammenfassen, dann Nullen bis auf die erste weg
+  var kurz="";
+  for(i=0;i<code.length;i++) if(code.charAt(i)!==code.charAt(i-1)) kurz+=code.charAt(i);
+  return kurz.charAt(0)+kurz.slice(1).replace(/0/g,"");
+}
+
 /* Wie viele Buchstaben müsste man ändern, damit aus a b wird.
    Damit erkennen wir Hörfehler am Telefon: ein Buchstabe Unterschied ist fast immer einer. */
-function abstand(a,b){
-  a=normStr(a); b=normStr(b);
+function abstand(a,b,roh){
+  if(!roh){ a=normStr(a); b=normStr(b); }
   if(a===b) return 0;
   var m=a.length, nn=b.length;
   if(!m||!nn) return Math.max(m,nn);
@@ -3297,6 +3341,28 @@ function openForm(edit){
      weil am Telefon oft "Am Markt" statt "Am Alten Markt" ankommt. */
   var adrTimer=null, adrLauf=0;
 
+  /* Alle Straßennamen rund um eine Postleitzahl, einmal geholt und dann gemerkt.
+     Quelle ist OpenStreetMap über Overpass, kostenlos und ohne Schlüssel. */
+  function strassenLaden(plz){
+    if(STRASSEN[plz]) return Promise.resolve(STRASSEN[plz]);
+    var k=plzKoord(plz);
+    if(!k) return Promise.resolve(null);
+    var frage="[out:csv(name;false)][timeout:25];way(around:4000,"+k[0]+","+k[1]+")[highway][name];out tags;";
+    return fetch("https://overpass-api.de/api/interpreter?data="+encodeURIComponent(frage))
+      .then(function(r){ return r.ok?r.text():null; })
+      .then(function(t){
+        if(!t) return null;
+        var liste=[], gesehen={};
+        t.split("\n").forEach(function(z){
+          z=z.trim();
+          if(!z||gesehen[z]) return;
+          gesehen[z]=1; liste.push(z);
+        });
+        STRASSEN[plz]=liste;
+        return liste;
+      }).catch(function(){ return null; });
+  }
+
   function adrSpaeter(){
     if(adrTimer) clearTimeout(adrTimer);
     adrTimer=setTimeout(adrPruefen,900);
@@ -3350,9 +3416,12 @@ function openForm(edit){
       '<div class="adr-liste">'+liste.map(function(v,i){
         var marken=[];
         if(v.plz) marken.push(v.gleichePlz?"gleiche PLZ "+v.plz:"andere PLZ "+v.plz);
-        if(v.diff===1) marken.push("nur ein Buchstabe anders");
+        if(v.klangDiff===0) marken.push("klingt gleich");
+        else if(v.klangDiff===1) marken.push("klingt fast gleich");
+        else if(v.diff===1) marken.push("nur ein Buchstabe anders");
         else if(v.diff>1&&v.diff<=3) marken.push(v.diff+" Buchstaben anders");
-        return '<button type="button" class="adr-vor'+(v.gleichePlz&&v.diff<=3?" nah":"")+'" data-nr="'+i+'">'+
+        var nah=(v.gleichePlz&&(v.diff<=3||v.klangDiff<=1));
+        return '<button type="button" class="adr-vor'+(nah?" nah":"")+'" data-nr="'+i+'">'+
           '<b>'+esc(v.strasse)+'</b>'+
           '<span>'+esc([v.plz,v.ort].filter(Boolean).join(" ")||"ohne PLZ")+'</span>'+
           (marken.length?'<span class="adr-marke">'+esc(marken.join(" · "))+'</span>':'')+
@@ -3400,8 +3469,52 @@ function openForm(edit){
       });
   }
 
-  // Zweiter Anlauf, diesmal tippfehlertolerant und im Umkreis der Postleitzahl
+  /* Zweiter Anlauf. Die Postleitzahl stimmt immer, die kommt aus der Werbung und
+     wird im Gespräch bestätigt. Falsch verstanden wird die Straße. Also holen wir
+     alle Straßennamen in dieser Postleitzahl und suchen den, der am ähnlichsten
+     klingt. So wird aus Astator das Ostertor. */
   function adrAehnlich(ad,lauf){
+    var box=$("adrVors");
+    if(!ad.plz) return adrAehnlichWeit(ad,lauf);
+    box.innerHTML='<div class="adr-laeuft">Suche ähnliche Straßen in '+esc(ad.plz)+' …</div>';
+    return strassenLaden(ad.plz).then(function(strassen){
+      if(lauf!==adrLauf) return;
+      if(!strassen||!strassen.length) return adrAehnlichWeit(ad,lauf);
+
+      var teil=strasseTeilen(ad.strasse);
+      var gesucht=teil.name, klangG=klang(gesucht);
+      var ort=ad.ort||"";
+
+      var treffer=strassen.map(function(n){
+        return {
+          name:n,
+          klangDiff:abstand(klang(n),klangG,true),
+          textDiff:abstand(n,gesucht)
+        };
+      }).filter(function(v){
+        // Nur was wirklich in die Nähe kommt, sonst schlagen wir Unsinn vor
+        return v.klangDiff<=2 || v.textDiff<=3;
+      }).sort(function(x,y){
+        if(x.klangDiff!==y.klangDiff) return x.klangDiff-y.klangDiff;
+        return x.textDiff-y.textDiff;
+      }).slice(0,5).map(function(v){
+        var voll=[v.name,teil.nr].filter(Boolean).join(" ");
+        return {
+          text:[voll,[ad.plz,ort].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+          strasse:voll, plz:ad.plz, ort:ort, klangDiff:v.klangDiff
+        };
+      });
+
+      if(!treffer.length) return adrAehnlichWeit(ad,lauf);
+      adrVorschlaege(treffer,"Die Straße gibt es in "+ad.plz+" nicht. Ähnlich klingt:");
+    }).catch(function(){
+      if(lauf!==adrLauf) return;
+      return adrAehnlichWeit(ad,lauf);
+    });
+  }
+
+  // Letzter Anlauf ohne Postleitzahl, falls die Straßenliste nicht kommt
+  function adrAehnlichWeit(ad,lauf){
     var box=$("adrVors");
     var u="https://photon.komoot.io/api/?limit=6&lang=de&q="+
       encodeURIComponent(ad.strasse+(ad.ort?" "+ad.ort:""));
