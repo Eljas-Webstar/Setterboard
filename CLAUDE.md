@@ -19,9 +19,10 @@ Eine einzige HTML-Datei, kein Build-Schritt, Vanilla JS in einer IIFE.
 | `funktion/push-senden.ts` | Edge Function, verschickt die Mitteilungen |
 | `docs/push-einrichten.md` | Anleitung, ohne Schlüssel |
 
-Arbeitskopie beim Bauen: `/Users/Eljakim/Downloads/setterboard-supabase.html`,
-danach nach `setterboard-repo/index.html` kopieren, committen, pushen.
-GitHub Pages zieht in ein bis zwei Minuten nach.
+Seit dem Aufräumen am 22.09.2026 gibt es keine getrennte Arbeitskopie mehr.
+Gebaut wird direkt in `index.html` in diesem Ordner, veröffentlicht mit `./hochladen.sh`.
+Der Projektordner liegt unter `/Users/Eljakim/Downloads/setterboard/`.
+`setterboard-lokal.html` ist ein Altstand von Mitte September, nicht anfassen.
 
 ## Supabase
 
@@ -43,10 +44,10 @@ Jeder legt sich seinen Zugang selbst an und wählt dabei die Rolle.
 |---|---|---|
 | Setter | fremder | ein Closer die Anfrage annimmt |
 | Closer | eigener | ein Admin freigibt |
-| Monteur | eigener | ein Admin freigibt |
+| Applikateur | eigener | ein Admin freigibt |
 | Verwaltung | keiner, sieht alles | ein Admin freigibt |
 
-Closer und Monteur geben ihre Startadresse schon bei der Anmeldung an, sie landet
+Closer und Applikateur geben ihre Startadresse schon bei der Anmeldung an, sie landet
 in `personen.wunsch_strasse/_plz/_ort`. Beim Freigeben legt der Admin-Client daraus
 den Kalender an und leert die Wunschfelder.
 
@@ -56,6 +57,11 @@ könnte sich jeder Setter über die Browserkonsole selbst zum Admin machen.
 Die Insert-Policy lässt `admin` als Wunschrolle gar nicht erst zu.
 
 SQL dazu: `sql/setterboard-freigabe.sql`, setzt `sql/setterboard-monteure.sql` voraus.
+
+**Wortwahl:** Was der Nutzer als **Applikateur** sieht, heißt in der Datenbank weiter
+`monteur` (Rolle, Spalte `auftraege.monteur_kalender`, Funktion `istMonteur()`).
+Umbenannt wurde nur die Oberfläche, weil Constraint, Policies und Trigger daran hängen.
+Neue Texte also immer Applikateur, neuer Code weiter `monteur`.
 
 ## Fallen, die schon einmal Zeit gekostet haben
 

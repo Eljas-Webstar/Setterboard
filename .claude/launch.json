@@ -1,0 +1,17 @@
+{
+ "version": "0.0.1",
+ "configurations": [
+  {
+   "name": "setterboard",
+   "runtimeExecutable": "python3",
+   "runtimeArgs": [
+    "-m",
+    "http.server",
+    "8781",
+    "--directory",
+    "/private/tmp/claude-502/-Users-Eljakim-Downloads/977dbecb-6f6e-43ce-b8da-a56a077d0135/scratchpad/web"
+   ],
+   "port": 8781
+  }
+ ]
+}

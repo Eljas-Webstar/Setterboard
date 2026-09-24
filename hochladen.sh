@@ -5,7 +5,8 @@ set -e
 cd "$(dirname "$0")"
 set -a; . ~/.config/setterboard/.env; set +a
 
-QUELLE="/Users/Eljakim/Downloads/setterboard-supabase.html"
+# Seit dem Aufräumen am 22.09. ist die Datei im Repo selbst die Arbeitsdatei
+QUELLE="$(pwd)/index.html"
 STAND=$(date +%Y-%m-%d-%H%M)
 
 # Versionsnummer in die Datei stempeln und als version.txt ablegen
@@ -27,7 +28,7 @@ if not punkte and len(sys.argv) > 2: punkte = [sys.argv[2]]
 json.dump({"stand": stand, "punkte": punkte}, open("version.json","w",encoding="utf-8"), ensure_ascii=False)
 PY2
 echo "$STAND" > version.txt
-cp "$QUELLE" index.html
+[ "$QUELLE" = "$(pwd)/index.html" ] || cp "$QUELLE" index.html
 
 for f in index.html sw.js manifest.webmanifest icon-192.png icon-512.png version.json version.txt .htaccess; do
   [ -f "$f" ] || continue

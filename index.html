@@ -776,7 +776,7 @@ main{padding-bottom:86px}
         <select id="nu_rolle">
           <option value="setter">Setter, Termine am Telefon setzen</option>
           <option value="closer">Closer, zu den Kunden fahren</option>
-          <option value="monteur">Monteur, Rutschschutz einbauen</option>
+          <option value="monteur">Applikateur, Rutschschutz einbauen</option>
           <option value="verwaltung">Verwaltung, Anträge und Einbauten planen</option>
         </select>
       </div>
@@ -808,7 +808,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-21-1722";
+var VERSION = "2026-09-24-1850";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1522,7 +1522,7 @@ function fahrMin(plzA,ortA,plzB,ortB){
   return Math.round(km/v*60)+FAHRT.puffer;
 }
 function startPunkt(closerName){
-  // Closer und Monteur haben beide einen eigenen Startpunkt
+  // Closer und Applikateur haben beide einen eigenen Startpunkt
   var c=S.team.filter(function(m){
     return (m.rolle==="closer"||m.rolle==="monteur") && m.name===closerName;
   })[0];
@@ -1630,7 +1630,7 @@ function nachAnmeldung(user){
       setDiag("Dieser Zugang ist noch keinem Kalender zugeordnet. Melde dich beim Admin.",true);
       return;
     }
-    // Closer, Monteur und Verwaltung warten auf die Freigabe durch einen Admin
+    // Closer, Applikateur und Verwaltung warten auf die Freigabe durch einen Admin
     if(r.data.freigegeben===false){
       S.freigabe={ id:user.id, name:r.data.name, rolle:r.data.rolle };
       return freigabeBildschirm();
@@ -1654,7 +1654,7 @@ function nachAnmeldung(user){
   });
 }
 
-/* Zwischenschritt für Closer, Monteur und Verwaltung:
+/* Zwischenschritt für Closer, Applikateur und Verwaltung:
    der Zugang steht, ein Admin muss ihn nur noch freigeben. */
 var freigabeTimer=null;
 
@@ -2155,7 +2155,7 @@ function rollenName(r){
   return r==="admin" ? "Admin"
     : r==="verwaltung" ? "Verwaltung"
     : r==="closer" ? "Closer"
-    : r==="monteur" ? "Monteur" : "Setter";
+    : r==="monteur" ? "Applikateur" : "Setter";
 }
 function meinCloser(){
   if(!S.me) return null;
@@ -2258,12 +2258,12 @@ function renderHeute(){
 
 /* ---------------- Aufträge ----------------
    Was verkauft wurde und noch nicht eingebaut ist. Die Verwaltung arbeitet diese
-   Liste ab: Antrag raus, Genehmigung eintragen, Monteur und Tag festlegen. */
+   Liste ab: Antrag raus, Genehmigung eintragen, Applikateur und Tag festlegen. */
 var AUFTRAG_STUFEN = [
   ["verkauft",   "Verkauft",            "Antrag muss noch zur Kasse"],
   ["beantragt",  "Bei der Kasse",       "Wartet auf die Genehmigung"],
   ["genehmigt",  "Genehmigt",           "Kann eingeplant werden"],
-  ["terminiert", "Termin steht",        "Monteur ist eingeteilt"],
+  ["terminiert", "Termin steht",        "Applikateur ist eingeteilt"],
   ["erledigt",   "Erledigt",            "Eingebaut und fertig"],
   ["abgelehnt",  "Abgelehnt",           "Die Kasse zahlt nicht"]
 ];
@@ -2324,7 +2324,7 @@ function auftragKarte(x){
     '<div class="ak-zeile">'+esc(adr||"keine Adresse")+'</div>'+
     '<div class="ak-zeile hint">Verkauft von '+esc(x.verkauft_von||"?")+
       (x.gesetzt_von?', gesetzt von '+esc(x.gesetzt_von):'')+
-      (monteur?' · Monteur '+esc(monteur):'')+
+      (monteur?' · Applikateur '+esc(monteur):'')+
       (x.genehmigt_am?' · genehmigt am '+esc(deDate(parseYmd(x.genehmigt_am))):'')+'</div>'+
     (knoepfe?'<div class="ak-knoepfe">'+knoepfe+'</div>':'')+
   '</div>';
@@ -2398,7 +2398,7 @@ function planeEinbau(id){
   if(!x) return;
   var ms=monteure();
   if(!ms.length){
-    overlay("Einbau planen",'<div class="stop"><b>Kein Monteur angelegt</b>Leg zuerst unter Einstellungen einen Zugang mit der Rolle Monteur an.</div>',
+    overlay("Einbau planen",'<div class="stop"><b>Kein Applikateur angelegt</b>Leg zuerst unter Einstellungen einen Zugang mit der Rolle Applikateur an.</div>',
       '<button class="btn ghost" id="pe_zu">Schließen</button>',"planen");
     $("pe_zu").onclick=closeOverlay; return;
   }
@@ -2410,7 +2410,7 @@ function planeEinbau(id){
     '<div class="kv"><dt>Kunde</dt><dd><b>'+esc(wer)+'</b></dd>'+
       '<dt>Adresse</dt><dd>'+esc(adr||"—")+'</dd>'+
       '<dt>Umfang</dt><dd>'+esc(x.umfang||"nicht angegeben")+'</dd></div>'+
-    '<div class="field" style="margin-bottom:10px"><label for="pe_monteur">Welcher Monteur?</label>'+
+    '<div class="field" style="margin-bottom:10px"><label for="pe_monteur">Welcher Applikateur?</label>'+
       '<select id="pe_monteur">'+ms.map(function(m){
         return '<option value="'+esc(m.name)+'">'+esc(m.name)+'</option>'; }).join("")+'</select></div>'+
     '<div class="two" style="margin-bottom:10px">'+
@@ -2482,7 +2482,7 @@ function renderHomeAdmin(){
   var sichtbar=cs.filter(function(c){ return !filter || c.name.toLowerCase().indexOf(filter)>-1; });
   var html='<div class="hallo"><h2>Hallo '+esc(S.me.name)+'</h2>'+
     '<p>'+(istVerwaltung()
-      ? 'Du siehst alle Kalender und jeden Monteur. Von hier aus planst du die Einbauten.'
+      ? 'Du siehst alle Kalender und jeden Applikateur. Von hier aus planst du die Einbauten.'
       : 'Adminzugang. Du siehst alle Kalender, ihre Setter und Zugänge.')+'</p></div>';
 
   html+=kalenderSuchfeld(cs.length);
@@ -2493,10 +2493,10 @@ function renderHomeAdmin(){
     return kachel(c.name, t+(t===1?" Termin":" Termine")+" · "+setter+(setter===1?" Setter":" Setter"));
   }).join(""):'<p class="hint">Kein Kalender mit diesem Namen.</p>')+'</div>';
 
-  // Monteure haben eigene Kalender, die Verwaltung muss deren Auslastung sehen
+  // Applikateure haben eigene Kalender, die Verwaltung muss deren Auslastung sehen
   var ms=monteure().filter(function(m){ return !filter || m.name.toLowerCase().indexOf(filter)>-1; });
   if(ms.length){
-    html+='<div class="sec-label" style="margin:14px 0 6px">Monteure</div>'+
+    html+='<div class="sec-label" style="margin:14px 0 6px">Applikateure</div>'+
       '<div class="kalreihe">'+ms.map(function(m){
         var e=S.appts.filter(function(a){ return a.closer===m.name&&a.status!=="abgesagt"; }).length;
         return kachel(m.name, e+(e===1?" Einbau":" Einbauten"));
@@ -2639,7 +2639,7 @@ function renderWeek(){
   hb.classList.toggle("ruht",!!amHeute);       // steht man schon auf heute, tritt er zurück
   hb.title = amHeute ? "Du bist beim heutigen Tag" : "Zurück zum heutigen Tag";
   $("sperrBtn").hidden = !(S.me && (S.me.rolle==="closer" || istAdmin()));
-  $("neuImKalender").hidden = !(S.me && S.me.rolle==="closer");   // Monteure legen keine Termine an
+  $("neuImKalender").hidden = !(S.me && S.me.rolle==="closer");   // Applikateure legen keine Termine an
   var today=heuteYmd, list=visible(), html="";
   for(var i=0;i<6;i++){
     var d=addDays(start,i), key=ymd(d);
@@ -3820,18 +3820,18 @@ function openWho(){
       '<p class="hint" style="margin-bottom:8px">Antippen zeigt die Namen. Der Schlüssel vergibt ein neues Passwort, das ✕ entzieht den Zugang.</p>'+
       '<div class="gruppen">'+
         gruppe("closer","Closer und Setter", closerMitSettern())+
-        gruppe("monteur","Monteure", S.team.filter(function(m){ return m.rolle==="monteur"; }))+
+        gruppe("monteur","Applikateure", S.team.filter(function(m){ return m.rolle==="monteur"; }))+
         gruppe("verwaltung","Verwaltung und Admin", S.team.filter(function(m){ return m.rolle==="verwaltung"||m.rolle==="admin"; }))+
       '</div>'+
       '<hr class="sep">'+
       '<div><div class="sec-label" style="margin-bottom:6px">Zugang anlegen</div>'+
-        '<p class="hint" style="margin-bottom:8px">Closer und Monteur bekommen einen eigenen Kalender, der Setter arbeitet in einem fremden. Die Verwaltung sieht alles und plant die Einbauten. Benutzername und Passwort vergibst du hier und gibst sie weiter.</p>'+
+        '<p class="hint" style="margin-bottom:8px">Closer und Applikateur bekommen einen eigenen Kalender, der Setter arbeitet in einem fremden. Die Verwaltung sieht alles und plant die Einbauten. Benutzername und Passwort vergibst du hier und gibst sie weiter.</p>'+
         '<div class="two" style="margin-bottom:10px">'+
           '<div class="field"><label for="ad_name">Name</label><input id="ad_name" autocomplete="off"></div>'+
           '<div class="field"><label for="ad_rolle">Rolle</label><select id="ad_rolle">'+
             '<option value="closer">Closer mit eigenem Kalender</option>'+
             '<option value="setter">Setter in einem Kalender</option>'+
-            '<option value="monteur">Monteur mit eigenem Kalender</option>'+
+            '<option value="monteur">Applikateur mit eigenem Kalender</option>'+
             '<option value="verwaltung">Verwaltung</option>'+
             '<option value="admin">Admin</option></select></div>'+
         '</div>'+
@@ -3952,7 +3952,7 @@ function openWho(){
       var mitKalender = (rolle==="closer"||rolle==="monteur");
       if(mitKalender&&!koord(st.plz,st.ort)){
         err.hidden=false;
-        err.textContent=(rolle==="monteur"?"Ein Monteur":"Ein Closer")+" braucht eine Startadresse mit bekannter Postleitzahl.";
+        err.textContent=(rolle==="monteur"?"Ein Applikateur":"Ein Closer")+" braucht eine Startadresse mit bekannter Postleitzahl.";
         return;
       }
       var kalWahl = rolle==="setter" ? ($("ad_kal")?$("ad_kal").value:"") : "";
