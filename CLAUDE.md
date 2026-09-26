@@ -103,6 +103,28 @@ Echter Fall aus dem Test: "Am Markt 3, 31515 Wunstorf" gibt es nicht.
 Google Maps biegt stillschweigend auf Gehrden um, die Prüfung schlägt
 "Am Alten Markt 3, 31515 Wunstorf" vor.
 
+## Terminbestätigung und Kundenerinnerung (Stand 26.09.2026)
+
+- Nach dem Speichern (neu oder Zeit geändert) öffnet `bestaetigungOeffnen()` den Text vom
+  Setter an den Kunden. WhatsApp über `wa.me`, SMS über `sms:`, Kopieren als Rückfall.
+  `istHandynummer()` erkennt Festnetz (alles außer 015/016/017).
+- `termine.kunde_erinnern` = Minuten vor dem Termin. Der Auslöser legt eine Mitteilung
+  "Kunden erinnern" an den Closer an. `sw.js` erkennt den Titel und öffnet `#erinnern=<id>`,
+  dort sind Anrufen und fertige SMS.
+- Bestätigt wird über `store.markBestaetigt()`, bewusst nicht über `terminInDb()`,
+  sonst überschreibt ein älterer Stand auf einem anderen Gerät das Feld mit leer.
+- Closer tragen Anrede und Handynummer in den Einstellungen ein, Spalten
+  `kalender.telefon` und `kalender.anrede`.
+
+**Falle Zeitzone:** Die Datenbank läuft auf UTC. `datum + zeit` ist deutsche Zeit.
+Immer über `termin_zeitpunkt(datum, zeit)` rechnen, das wandelt nach Europe/Berlin um.
+Bis zum 26.09. kam "Gleich losfahren" dadurch eine Stunde nach Terminbeginn.
+
+**Offen aus der Recherche 26.09.:** Nominatim verbietet Suche beim Tippen, der öffentliche
+Overpass-Server ist nicht für gewerbliche Nutzung. Ersatz geplant: Straßenverzeichnis der
+eigenen PLZ einmal herunterladen und mitliefern. Supabase Free hat kein nutzbares Backup
+und pausiert nach einer Woche ohne Nutzung.
+
 ## Offen, für später vorgemerkt
 
 **Route und Fahrzeit über einen echten Dienst.** Heute ist beides selbst gerechnet:
