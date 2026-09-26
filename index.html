@@ -435,6 +435,9 @@ body.panel-offen{overflow:hidden;position:relative;width:100%}
 .ak-zeile.hint{font-size:12px;color:var(--ink-3)}
 .ak-knoepfe{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .ak-knoepfe .btn{min-height:40px}
+.nachricht-knoepfe{display:flex;flex-wrap:wrap;gap:8px}
+.nachricht-knoepfe .btn{flex:1 1 150px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.gross-knopf{display:flex;align-items:center;justify-content:center;min-height:52px;font-size:16px;text-decoration:none}
 #adrVors{display:block;margin-top:6px}
 .adr-ok{font-size:12.5px;color:var(--ok);font-weight:600;padding:2px 0}
 .adr-laeuft{font-size:12.5px;color:var(--ink-3);padding:2px 0}
@@ -822,7 +825,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-24-1918";
+var VERSION = "2026-09-26-1836";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1004,7 +1007,9 @@ function terminAusDb(r){
     entscheider:!!r.entscheider, papiere:!!r.papiere,
     datum:r.datum, zeit:String(r.zeit||"").slice(0,5), dauer:r.dauer||60,
     status:r.status||"geplant", setter:r.setter_name||"", updatedBy:r.geaendert_von||"",
-    art:r.art||"beratung"
+    art:r.art||"beratung",
+    anrede:r.anrede||"", kundeErinnern:(r.kunde_erinnern==null?null:+r.kunde_erinnern),
+    bestaetigtAm:r.bestaetigt_am||"", bestaetigtVon:r.bestaetigt_von||""
   };
 }
 function terminInDb(a){
@@ -1017,6 +1022,8 @@ function terminInDb(a){
     entscheider:!!a.entscheider, papiere:!!a.papiere,
     datum:a.datum, zeit:a.zeit, dauer:+a.dauer||60,
     status:a.status||"geplant", setter_name:a.setter||null, art:a.art||"beratung",
+    anrede:a.anrede||null,
+    kunde_erinnern:(a.kundeErinnern==null||a.kundeErinnern===""?null:+a.kundeErinnern),
     geaendert_von:a.updatedBy||null, geaendert:new Date().toISOString()
   };
 }
@@ -1024,7 +1031,8 @@ function personAusDb(r){
   var k=KAL[r.kalender_id]||null;
   var o={ id:r.id, name:r.name, rolle:r.rolle, benutzer:r.benutzer||"", kalender_id:r.kalender_id };
   if(r.rolle==="setter") o.gehoertZu=k?k.name:null;
-  if(r.rolle==="closer"&&k){ o.startPlz=k.start_plz||""; o.startOrt=k.start_ort||""; o.startStrasse=k.start_strasse||""; }
+  if(r.rolle==="closer"&&k){ o.startPlz=k.start_plz||""; o.startOrt=k.start_ort||""; o.startStrasse=k.start_strasse||"";
+    o.telefon=k.telefon||""; o.anrede=k.anrede||""; }
   return o;
 }
 
@@ -1182,6 +1190,14 @@ function sbStore(){
     kalenderAendern:function(id,st){
       return sb.from("kalender").update({ start_strasse:st.strasse||null, start_plz:st.plz||null, start_ort:st.ort||null })
         .eq("id",id).then(function(r){ if(r.error) throw r.error; jetzt(); });
+    },
+    kalenderKontakt:function(id,tel,anrede){
+      return sb.from("kalender").update({ telefon:tel||null, anrede:anrede||null })
+        .eq("id",id).then(function(r){ if(r.error) throw r.error; jetzt(); });
+    },
+    markBestaetigt:function(id,wer){
+      return sb.from("termine").update({ bestaetigt_am:new Date().toISOString(), bestaetigt_von:wer||null })
+        .eq("id",id).then(function(r){ if(r.error) throw r.error; jetzt(); });
     }
   };
 }
@@ -1286,6 +1302,7 @@ var PUSH = {
       self.sw=reg;
       navigator.serviceWorker.addEventListener("message",function(e){
         if(e.data&&e.data.art==="termin-oeffnen"&&e.data.id) setTimeout(function(){ openAppt(e.data.id); },300);
+        if(e.data&&e.data.art==="erinnern-oeffnen"&&e.data.id) setTimeout(function(){ erinnernAusId(e.data.id); },300);
       });
       return reg;
     }).catch(function(){ return null; });
@@ -1984,7 +2001,19 @@ function enterApp(){
   }
 }
 
+function erinnernAusId(id){
+  // Die Termine kommen erst nach dem Laden, deshalb ein paar Mal nachsehen
+  var versuche=0;
+  (function nochmal(){
+    var a=S.appts.filter(function(x){ return x.id===id; })[0];
+    if(a) return erinnernOeffnen(a);
+    if(++versuche<10) setTimeout(nochmal,600);
+  })();
+}
+
 function terminAusLink(){
+  var e=/#erinnern=([A-Za-z0-9-]+)/.exec(location.hash||"");
+  if(e){ history.replaceState(null,"",location.pathname+location.search); erinnernAusId(e[1]); return; }
   var m=/#termin=([A-Za-z0-9-]+)/.exec(location.hash||"");
   if(!m) return;
   history.replaceState(null,"",location.pathname+location.search);
@@ -3118,6 +3147,136 @@ document.addEventListener("click",function(e){
   routeStarten(a.getAttribute("data-route"));
 },true);
 
+/* ---------------- Nachrichten an den Kunden ----------------
+   Terminbestätigung vom Setter nach dem Speichern, Erinnerung vom Closer vor dem Termin.
+   Beides geht vom eigenen Handy raus, über WhatsApp oder SMS, ohne Anbieter dazwischen. */
+function telInternational(t){
+  var z=String(t||"").replace(/[^0-9+]/g,"");
+  if(z.indexOf("+")===0) z=z.slice(1);
+  else if(z.indexOf("00")===0) z=z.slice(2);
+  else if(z.indexOf("0")===0) z="49"+z.slice(1);
+  return z.replace(/\D/g,"");
+}
+// Deutsche Handynummern beginnen mit 015, 016 oder 017, alles andere ist Festnetz
+function istHandynummer(t){ return /^491[5-7]\d{6,}/.test(telInternational(t)); }
+function nachnameVon(n){ var t=String(n||"").trim().split(/\s+/); return t[t.length-1]||""; }
+function vornameVon(n){ return String(n||"").trim().split(/\s+/)[0]||""; }
+
+function kundeGruss(a){
+  if(a.anrede&&a.nachname) return a.anrede+" "+a.nachname;
+  return [a.vorname,a.nachname].filter(Boolean).join(" ");
+}
+function closerDaten(a){
+  var k=KAL[a.kalender_id||kalIdVon(a.closer)]||{};
+  var n=k.name||a.closer||"";
+  var an=k.anrede||"";
+  return {
+    name:n, telefon:k.telefon||"", anrede:an,
+    kurz: an ? (an+" "+nachnameVon(n)) : n,
+    seine: an==="Frau" ? "Ihre" : (an==="Herr" ? "Seine" : "Die"),
+    bei: an==="Frau" ? "bei ihr" : (an==="Herr" ? "bei ihm" : ("bei "+n))
+  };
+}
+function tageBis(datum){
+  var h=new Date(); h.setHours(0,0,0,0);
+  return Math.round((parseYmd(datum)-h)/86400000);
+}
+
+function bestaetigungText(a){
+  var c=closerDaten(a), d=parseYmd(a.datum);
+  var wann=DOW[(d.getDay()+6)%7]+", den "+deDate(d)+", um "+a.zeit+" Uhr";
+  var adr=adresseEineZeile(a);
+  var gruss=kundeGruss(a);
+  return "Hallo"+(gruss?" "+gruss:"")+",\n\n"+
+    "hier finden Sie den Link zum Unternehmen IFBA:\nhttps://ifba.de/\n\n"+
+    c.kurz+" berät Sie am "+wann+" bei Ihnen zu Hause"+(adr?", "+adr:"")+". "+
+    c.seine+" Nummer: "+(c.telefon||"[Nummer vom Closer fehlt]")+".\n\n"+
+    "Wenn Sie Fragen haben oder den Termin verschieben möchten, melden Sie sich gern "+c.bei+" oder bei mir.\n\n"+
+    "Viele Grüße\n"+vornameVon(S.me?S.me.name:"");
+}
+
+function erinnerungText(a){
+  var c=closerDaten(a), d=parseYmd(a.datum), n=tageBis(a.datum);
+  var tag=DOW[(d.getDay()+6)%7]+" "+pad(d.getDate())+"."+pad(d.getMonth()+1)+".";
+  var wann = n===0 ? "heute" : n===1 ? ("morgen, "+tag+",") : n===2 ? ("übermorgen, "+tag+",") : ("am "+tag);
+  var gruss=(a.anrede&&a.nachname)?(" "+a.anrede+" "+a.nachname):"";
+  return "Guten Tag"+gruss+", hier ist "+c.name+". Wie besprochen komme ich "+wann+" um "+a.zeit+
+    " Uhr zu Ihnen wegen des Rutschschutzes im Bad. Falls etwas dazwischenkommt, rufen Sie mich gern unter dieser Nummer an.";
+}
+
+function smsLink(tel,text){
+  return "sms:+"+telInternational(tel)+(istIOS()?"&":"?")+"body="+encodeURIComponent(text);
+}
+function waLink(tel,text){
+  return "https://wa.me/"+telInternational(tel)+"?text="+encodeURIComponent(text);
+}
+function textKopieren(feld){
+  var t=feld.value;
+  if(navigator.clipboard&&navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+  feld.select(); try{ document.execCommand("copy"); }catch(e){}
+  return Promise.resolve();
+}
+
+function nummernHinweis(tel){
+  if(!String(tel||"").replace(/\D/g,"")) return '<div class="adr-warn">Beim Kunden ist keine Telefonnummer eingetragen.</div>';
+  if(!istHandynummer(tel)) return '<div class="adr-warn">Das ist eine Festnetznummer, dahin gehen weder WhatsApp noch SMS. '+
+    'Frag nach einem Handy, zum Beispiel von Sohn oder Tochter, oder kopier den Text für einen anderen Weg.</div>';
+  return "";
+}
+
+function bestaetigungOeffnen(a,nachSpeichern){
+  var c=closerDaten(a), handy=istHandynummer(a.telefon);
+  var body=
+    (nachSpeichern?'<div class="adr-ok" style="font-size:14px">Termin steht. Jetzt noch die Bestätigung an den Kunden?</div>':'')+
+    (a.bestaetigtAm?'<p class="hint">Schon gesendet von '+esc(a.bestaetigtVon||"?")+' am '+esc(deDate(new Date(a.bestaetigtAm)))+'.</p>':'')+
+    (c.telefon?'':'<div class="adr-warn">'+esc(c.name)+' hat noch keine eigene Nummer hinterlegt. Die trägt er in seinen Einstellungen ein, bis dahin steht im Text ein Platzhalter.</div>')+
+    nummernHinweis(a.telefon)+
+    '<div class="field"><label for="nb_text">Text, du kannst ihn hier noch ändern</label>'+
+      '<textarea id="nb_text" rows="12" style="font-size:15px;line-height:1.45">'+esc(bestaetigungText(a))+'</textarea></div>'+
+    '<div class="nachricht-knoepfe">'+
+      (handy?'<a class="btn primary" id="nb_wa" href="#" target="_blank" rel="noopener">WhatsApp öffnen</a>'+
+             '<a class="btn" id="nb_sms" href="#">SMS öffnen</a>':'')+
+      '<button class="btn" id="nb_kopie">Text kopieren</button>'+
+    '</div>';
+  var foot='<button class="btn ghost" id="nb_zu">'+(nachSpeichern?'Später':'Schließen')+'</button>';
+  overlay("Terminbestätigung",body,foot,"bestaetigung");
+
+  var feld=$("nb_text");
+  var gesendet=function(weg){
+    if(!store||!store.markBestaetigt||String(a.id).length<30) return;
+    store.markBestaetigt(a.id,S.me.name).then(function(){
+      a.bestaetigtAm=new Date().toISOString(); a.bestaetigtVon=S.me.name;
+      logEvent("status","Bestätigung an "+name(a)+" per "+weg+" geschickt",a.id,"status");
+    }).catch(function(){});
+  };
+  var wa=$("nb_wa"), sms=$("nb_sms");
+  if(wa) wa.onclick=function(){ wa.href=waLink(a.telefon,feld.value); gesendet("WhatsApp"); };
+  if(sms) sms.onclick=function(){ sms.href=smsLink(a.telefon,feld.value); gesendet("SMS"); };
+  $("nb_kopie").onclick=function(){
+    textKopieren(feld).then(function(){ toast("Text kopiert. Jetzt in WhatsApp einfügen."); gesendet("kopiertem Text"); });
+  };
+  $("nb_zu").onclick=function(){ closeOverlay(); };
+}
+
+function erinnernOeffnen(a){
+  var tel=String(a.telefon||"").replace(/[^0-9+]/g,""), handy=istHandynummer(a.telefon);
+  var d=parseYmd(a.datum);
+  var body=
+    '<div class="kv">'+
+      '<dt>Kunde</dt><dd><b>'+esc(kundeGruss(a)||name(a))+'</b></dd>'+
+      '<dt>Termin</dt><dd>'+esc(DOW[(d.getDay()+6)%7]+", "+deDate(d)+", "+a.zeit+" Uhr")+'</dd>'+
+      '<dt>Telefon</dt><dd class="mono">'+esc(a.telefon||"—")+'</dd>'+
+    '</div>'+
+    (tel?'<a class="btn primary gross-knopf" href="tel:'+esc(tel)+'">Jetzt anrufen</a>':'')+
+    (handy?'<div class="field" style="margin-top:6px"><label for="er_text">Oder per SMS, der Text ist schon fertig</label>'+
+      '<textarea id="er_text" rows="5" style="font-size:15px;line-height:1.45">'+esc(erinnerungText(a))+'</textarea></div>'+
+      '<a class="btn" id="er_sms" href="#">SMS öffnen</a>' : nummernHinweis(a.telefon));
+  overlay("Kunden erinnern",body,'<button class="btn ghost" id="er_zu">Schließen</button>',"erinnern");
+  var sms=$("er_sms");
+  if(sms) sms.onclick=function(){ sms.href=smsLink(a.telefon,$("er_text").value); };
+  $("er_zu").onclick=function(){ closeOverlay(); };
+}
+
 function openAppt(id){
   var a=S.appts.filter(function(x){ return x.id===id; })[0]; if(!a) return;
   var d=parseYmd(a.datum);
@@ -3141,7 +3300,16 @@ function openAppt(id){
       '<dt>Papiere</dt><dd>'+(a.papiere?"besprochen, liegen bereit":"noch nicht besprochen")+'</dd>'+
       '<dt>Setter</dt><dd>'+esc(a.setter)+'</dd>'+
       '<dt>Closer</dt><dd>'+esc(a.closer)+'</dd>'+
+      (a.art==="einbau" ? '' :
+      '<dt>Bestätigung</dt><dd>'+(a.bestaetigtAm
+        ? 'gesendet von '+esc(a.bestaetigtVon||"?")+' am '+esc(deDate(new Date(a.bestaetigtAm)))
+        : '<span style="color:var(--warn)">noch nicht gesendet</span>')+'</dd>')+
     '</div>'+
+    (a.art==="einbau" ? '' :
+      '<div class="nachricht-knoepfe">'+
+        '<button class="btn" id="bestBtn">Terminbestätigung schicken</button>'+
+        '<button class="btn" id="erinBtn">Kunden erinnern</button>'+
+      '</div>')+
     '<div class="callrow">'+
       (adr?'<a class="haupt" href="'+esc(routeLink(adr))+'" data-route="'+esc(adr)+'" target="_blank" rel="noopener">🚗 Losfahren</a>':'')+
       (tel?'<a href="tel:'+esc(tel)+'">📞 Anrufen</a><a href="sms:'+esc(tel)+'">✉️ SMS</a>':'')+
@@ -3174,6 +3342,8 @@ function openAppt(id){
     };
   });
   $("moveBtn").onclick=function(){ openForm(a); };
+  if($("bestBtn")) $("bestBtn").onclick=function(){ bestaetigungOeffnen(a,false); };
+  if($("erinBtn")) $("erinBtn").onclick=function(){ erinnernOeffnen(a); };
   $("delBtn").onclick=function(){
     var f=document.querySelector(".panel-foot");
     f.innerHTML='<div class="confirm" style="width:100%">'+
@@ -3240,6 +3410,11 @@ function openForm(edit){
     '<div class="schrittleiste"><span class="sk" id="sk1">1 Zum Termin</span><span class="sk" id="sk2">2 Fürs Gespräch</span></div>'+
     '<div id="schritt1">'+
     '<div class="sec-label" style="margin-bottom:2px">Wer und wo?</div>'+
+    '<div class="field"><label for="f_anrede">Anrede</label><select id="f_anrede">'+
+      '<option value="">bitte wählen</option>'+
+      '<option value="Frau"'+(a.anrede==="Frau"?" selected":"")+'>Frau</option>'+
+      '<option value="Herr"'+(a.anrede==="Herr"?" selected":"")+'>Herr</option>'+
+    '</select></div>'+
     '<div class="two">'+
       '<div class="field"><label for="f_vor">Vorname</label><input id="f_vor" autocomplete="off" value="'+esc(a.vorname||"")+'"></div>'+
       '<div class="field"><label for="f_nach">Nachname</label><input id="f_nach" autocomplete="off" value="'+esc(a.nachname||"")+'"></div>'+
@@ -3266,6 +3441,13 @@ function openForm(edit){
         }).join("")+'</select></div>'+
       '<div class="field"><label for="f_closer">Closer</label><select id="f_closer" disabled><option selected>'+esc(meinC)+'</option></select></div>'+
     '</div>'+
+    '<div class="field"><label for="f_erinnern">Closer erinnert den Kunden</label><select id="f_erinnern">'+
+      (function(){
+        var wahl = edit ? (a.kundeErinnern==null ? "" : String(a.kundeErinnern)) : "1440";
+        return [["2880","2 Tage vorher"],["1440","1 Tag vorher"],["180","3 Stunden vorher"],["60","1 Stunde vorher"],["","keine Erinnerung"]]
+          .map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===wahl?" selected":"")+'>'+o[1]+'</option>'; }).join("");
+      })()+
+    '</select><span class="hint">Der Closer bekommt dann eine Mitteilung und ruft an oder schickt mit einem Tipp die fertige SMS.</span></div>'+
     '<div class="field"><label>Freie Zeiten an dem Tag</label><div class="slots" id="slotBox"></div><p class="hint" id="slotHint"></p></div>'+
     '<div id="konfliktBox"></div>'+
     '</div>'+
@@ -3827,20 +4009,30 @@ function openForm(edit){
       notiz:$("f_notiz").value.trim(), hinweise:gewaehlt,
       entscheider:$("f_ent").checked, papiere:$("f_pap").checked,
       datum:sel.datum, zeit:sel.zeit, dauer:sel.dauer,
+      anrede:$("f_anrede").value, kundeErinnern:$("f_erinnern").value,
+      art:edit?(edit.art||"beratung"):"beratung",
+      bestaetigtAm:edit?(edit.bestaetigtAm||""):"", bestaetigtVon:edit?(edit.bestaetigtVon||""):"",
       closer:sel.closer, setter:edit?edit.setter:S.me.name,
       status:edit?(edit.status==="abgesagt"?"geplant":edit.status):"geplant",
       leistungen:edit?(edit.leistungen||[]):[],
       createdAt:edit?edit.createdAt:Date.now(),
       updatedAt:Date.now(), updatedBy:S.me.name
     };
-    upsertAppt(obj).then(function(){
+    var zeitNeu = !edit || edit.datum!==obj.datum || edit.zeit!==obj.zeit;
+    upsertAppt(obj).then(function(antwort){
       var wer=(vor+" "+nach).trim();
+      if(antwort&&antwort.id&&antwort.id!==obj.id){
+        // Die Datenbank vergibt die endgültige Kennung, damit weiterarbeiten
+        S.appts.forEach(function(x){ if(x.id===obj.id) x.id=antwort.id; });
+        obj.id=antwort.id;
+      }
       if(wasMove) logEvent("verschoben",wer+" verschoben auf "+deDate(parseYmd(obj.datum))+" "+obj.zeit,obj.id,"verschoben");
       else logEvent("neu","Neuer Termin: "+wer+" ("+pgText(obj)+") am "+deDate(parseYmd(obj.datum))+" um "+obj.zeit+" bei "+obj.closer,obj.id);
       closeOverlay();
       S.weekStart=mondayOf(parseYmd(obj.datum));
       render();
       toast(wasMove?"Termin verschoben, alle sind informiert.":"Termin eingetragen, alle sind informiert.");
+      if(zeitNeu) setTimeout(function(){ bestaetigungOeffnen(obj,true); },250);
     }).catch(function(){ fail("Speichern hat nicht geklappt. Probier es noch einmal."); });
   };
   setTimeout(function(){ var f=$("f_vor"); if(f&&!edit) f.focus(); },60);
@@ -4181,6 +4373,21 @@ function openWho(){
         '<button class="btn" id="st_go">Startpunkt speichern</button>'+
       '</div>'+
       '<hr class="sep">'+
+      '<div><div class="sec-label" style="margin-bottom:6px">So stehst du in der Terminbestätigung</div>'+
+        '<p class="hint" style="margin-bottom:8px">Der Setter schickt dem Kunden nach dem Termin deine Nummer. Ohne sie steht dort ein Platzhalter.</p>'+
+        '<div class="two" style="margin-bottom:8px">'+
+          '<div class="field"><label for="ct_anrede">Anrede</label><select id="ct_anrede">'+
+            '<option value="">bitte wählen</option>'+
+            '<option value="Herr"'+(S.me.anrede==="Herr"?" selected":"")+'>Herr</option>'+
+            '<option value="Frau"'+(S.me.anrede==="Frau"?" selected":"")+'>Frau</option>'+
+          '</select></div>'+
+          '<div class="field"><label for="ct_tel">Deine Handynummer</label>'+
+            '<input id="ct_tel" class="mono" inputmode="tel" autocomplete="tel" value="'+esc(S.me.telefon||"")+'" placeholder="0171 2345678"></div>'+
+        '</div>'+
+        '<span class="hint" id="ct_hint"></span>'+
+        '<button class="btn" id="ct_go">Speichern</button>'+
+      '</div>'+
+      '<hr class="sep">'+
       '';
   } else {
     body='<div class="kv">'+
@@ -4317,6 +4524,17 @@ function openWho(){
         h.textContent="Gespeichert: "+[st.strasse,st.plz,st.ort].filter(Boolean).join(" · "); h.style.color="var(--ok)";
         toast("Startpunkt gespeichert."); render();
       });
+    };
+
+    var ctGo=$("ct_go");
+    if(ctGo) ctGo.onclick=function(){
+      var tel=$("ct_tel").value.trim(), an=$("ct_anrede").value, h=$("ct_hint");
+      if(tel && !istHandynummer(tel)){ h.textContent="Das sieht nicht nach einer Handynummer aus. Kunden sollen dich auch per WhatsApp erreichen."; h.style.color="var(--warn)"; }
+      store.kalenderKontakt(S.me.kalender_id,tel,an).then(function(){
+        S.me.telefon=tel; S.me.anrede=an;
+        var k=KAL[S.me.kalender_id]; if(k){ k.telefon=tel; k.anrede=an; }
+        toast("Gespeichert. So steht es jetzt in der Bestätigung.");
+      }).catch(function(e){ h.textContent=meldung(e); h.style.color="var(--bad)"; });
     };
 
     var wl=$("whoList");

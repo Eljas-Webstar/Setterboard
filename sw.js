@@ -20,13 +20,16 @@ self.addEventListener("push", function(e){
 self.addEventListener("notificationclick", function(e){
   e.notification.close();
   var id = (e.notification.data && e.notification.data.termin) || "";
-  var ziel = new URL("./" + (id ? ("#termin=" + id) : ""), self.location.href).href;
+  // "Kunden erinnern" öffnet das Fenster mit Anrufen und SMS statt den Termin
+  var erinnern = (e.notification.title === "Kunden erinnern");
+  var anker = id ? ((erinnern ? "#erinnern=" : "#termin=") + id) : "";
+  var ziel = new URL("./" + anker, self.location.href).href;
   e.waitUntil(
     self.clients.matchAll({ type:"window", includeUncontrolled:true }).then(function(liste){
       for (var i=0; i<liste.length; i++){
         var c = liste[i];
         if (c.url.indexOf(self.registration.scope) === 0 && "focus" in c){
-          c.postMessage({ art:"termin-oeffnen", id:id });
+          c.postMessage({ art:(erinnern ? "erinnern-oeffnen" : "termin-oeffnen"), id:id });
           return c.focus();
         }
       }
