@@ -386,6 +386,12 @@ body.panel-offen{overflow:hidden;position:relative;width:100%}
 .field input,.field select,.field textarea{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:9px 11px;width:100%}
 .field input:focus,.field select:focus,.field textarea:focus{background:var(--surface)}
 .field textarea{min-height:80px;resize:vertical}
+/* Unter 16 Punkt zoomt das iPhone beim Antippen ran und bleibt vergrößert */
+@media (max-width:900px),(pointer:coarse){
+  .field input,.field select,.field textarea,.suche input,textarea,input,select{font-size:16px}
+}
+/* Erklärtexte lassen sich in den Einstellungen ausblenden */
+body.ohne-hilfe .erkl{display:none}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .check{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--ink-3);cursor:pointer;line-height:1.4;border:1px solid var(--line);border-radius:9px;padding:10px 12px}
@@ -800,7 +806,7 @@ main{padding-bottom:86px}
       <div class="field" id="nu_startWrap" hidden style="margin-bottom:10px">
         <label for="nu_start">Von wo fährst du morgens los?</label>
         <input id="nu_start" autocomplete="street-address" placeholder="Lindenstraße 6, 32657 Lemgo">
-        <span class="hint">Damit die Fahrzeiten zu deinen Terminen stimmen.</span>
+        <span class="hint erkl">Damit die Fahrzeiten zu deinen Terminen stimmen.</span>
       </div>
       <div class="warnbox" style="margin-bottom:10px"><b>Schreib dir Benutzername und Passwort auf.</b><br>
         Die App zeigt dir das Passwort später nicht mehr an.</div>
@@ -825,7 +831,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-26-1836";
+var VERSION = "2026-09-27-2307";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1002,13 +1008,13 @@ function terminAusDb(r){
     id:r.id, closer:kalNameVon(r.kalender_id)||"", kalender_id:r.kalender_id,
     vorname:r.vorname||"", nachname:r.nachname||"", telefon:r.telefon||"",
     strasse:r.strasse||"", plz:r.plz||"", ort:r.ort||"",
-    pflegegrad:r.pflegegrad||"", wohnform:r.wohnform||"eigentum",
+    pflegegrad:r.pflegegrad||"", wohnform:r.wohnform||"",
     notiz:r.notiz||"", hinweise:r.hinweise||[],
     entscheider:!!r.entscheider, papiere:!!r.papiere,
     datum:r.datum, zeit:String(r.zeit||"").slice(0,5), dauer:r.dauer||60,
     status:r.status||"geplant", setter:r.setter_name||"", updatedBy:r.geaendert_von||"",
     art:r.art||"beratung",
-    anrede:r.anrede||"", kundeErinnern:(r.kunde_erinnern==null?null:+r.kunde_erinnern),
+    anrede:r.anrede||"", haushalt:r.haushalt||"", kundeErinnern:(r.kunde_erinnern==null?null:+r.kunde_erinnern),
     bestaetigtAm:r.bestaetigt_am||"", bestaetigtVon:r.bestaetigt_von||""
   };
 }
@@ -1022,7 +1028,7 @@ function terminInDb(a){
     entscheider:!!a.entscheider, papiere:!!a.papiere,
     datum:a.datum, zeit:a.zeit, dauer:+a.dauer||60,
     status:a.status||"geplant", setter_name:a.setter||null, art:a.art||"beratung",
-    anrede:a.anrede||null,
+    anrede:a.anrede||null, haushalt:a.haushalt||null,
     kunde_erinnern:(a.kundeErinnern==null||a.kundeErinnern===""?null:+a.kundeErinnern),
     geaendert_von:a.updatedBy||null, geaendert:new Date().toISOString()
   };
@@ -1707,7 +1713,7 @@ function fahrtPruefung(datum,closer,vonMin,dauer,plzNeu,ortNeu,ausserId){
 
 /* ---------------- boot ---------------- */
 function start(){
-  themaAnwenden(); einladungAusLink(); renderGate(); wire(); claudeDb(); PUSH.start();
+  themaAnwenden(); hilfeAnwenden(); einladungAusLink(); renderGate(); wire(); claudeDb(); PUSH.start();
   versionPruefen();
   setInterval(versionPruefen,600000);
   document.addEventListener("visibilitychange",function(){ if(!document.hidden) versionPruefen(); });
@@ -3277,6 +3283,24 @@ function erinnernOeffnen(a){
   $("er_zu").onclick=function(){ closeOverlay(); };
 }
 
+/* Löschen sitzt im Bearbeiten-Fenster, damit keiner aus Versehen drauftippt */
+function terminLoeschenFragen(a){
+  var f=document.querySelector(".panel-foot");
+  f.innerHTML='<div class="confirm" style="width:100%">'+
+    '<p>Termin <b>'+esc(name(a))+'</b> am '+esc(deDate(parseYmd(a.datum)))+' endgültig löschen? '+
+    'Er verschwindet aus dem Kalender und aus dem Verlauf. Für einen Termin, der geplatzt ist, nimm lieber Absagen, dann bleibt er in den Zahlen.</p>'+
+    '<div class="row"><button class="yes" id="delYes">Endgültig löschen</button><button id="delNo">Abbrechen</button></div></div>';
+  $("delNo").onclick=function(){ openForm(a); };
+  $("delYes").onclick=function(){
+    var wer=name(a), wann=deDate(parseYmd(a.datum));
+    closeOverlay();
+    removeAppt(a.id).then(function(){
+      logEvent("abgesagt","Termin "+wer+" am "+wann+" wurde gelöscht");
+      toast("Termin gelöscht.");
+    }).catch(function(){ toast("Löschen hat nicht geklappt."); });
+  };
+}
+
 function openAppt(id){
   var a=S.appts.filter(function(x){ return x.id===id; })[0]; if(!a) return;
   var d=parseYmd(a.datum);
@@ -3295,9 +3319,13 @@ function openAppt(id){
       (a.art==="einbau" ? '' :
       '<dt>Pflegegrad</dt><dd><span class="pg">'+esc(pgText(a))+'</span>'+
         (a.pflegegrad==="antrag"?'<br><span class="hint">Bescheid steht noch aus, Einbau erst danach abrechnen.</span>':'')+'</dd>')+
-      '<dt>Wohnung</dt><dd>'+(a.wohnform==="miete"?"Miete, Vermieterzustimmung nötig":"Eigentum")+'</dd>'+
-      '<dt>Entscheidung</dt><dd>'+(a.entscheider?"entscheidet allein":"Angehörige entscheiden mit, siehe Notiz")+'</dd>'+
-      '<dt>Papiere</dt><dd>'+(a.papiere?"besprochen, liegen bereit":"noch nicht besprochen")+'</dd>'+
+      (a.wohnform==="miete" ? '<dt>Wohnung</dt><dd>Miete, Vermieterzustimmung nötig</dd>' :
+       a.wohnform==="eigentum" ? '<dt>Wohnung</dt><dd>Eigentum</dd>' :
+       a.wohnform==="heim" ? '<dt>Wohnung</dt><dd>Pflegeheim</dd>' : '')+
+      (a.haushalt==="ja" ? '<dt>Haushalt</dt><dd><b style="color:var(--ok)">Zweite Person mit Pflegegrad, beide beraten</b></dd>' :
+       a.haushalt==="nein" ? '<dt>Haushalt</dt><dd>keine zweite Person mit Pflegegrad</dd>' : '')+
+      (a.entscheider ? '<dt>Entscheidung</dt><dd>entscheidet allein</dd>' : '')+
+      (a.papiere ? '<dt>Papiere</dt><dd>besprochen, liegen bereit</dd>' : '')+
       '<dt>Setter</dt><dd>'+esc(a.setter)+'</dd>'+
       '<dt>Closer</dt><dd>'+esc(a.closer)+'</dd>'+
       (a.art==="einbau" ? '' :
@@ -3305,9 +3333,8 @@ function openAppt(id){
         ? 'gesendet von '+esc(a.bestaetigtVon||"?")+' am '+esc(deDate(new Date(a.bestaetigtAm)))
         : '<span style="color:var(--warn)">noch nicht gesendet</span>')+'</dd>')+
     '</div>'+
-    (a.art==="einbau" ? '' :
+    ((a.art==="einbau" || !(istAdmin() || (S.me && S.me.rolle==="closer"))) ? '' :
       '<div class="nachricht-knoepfe">'+
-        '<button class="btn" id="bestBtn">Terminbestätigung schicken</button>'+
         '<button class="btn" id="erinBtn">Kunden erinnern</button>'+
       '</div>')+
     '<div class="callrow">'+
@@ -3324,12 +3351,10 @@ function openAppt(id){
           return '<button data-s="'+st2+'" aria-pressed="'+(a.status===st2)+'">'+STATUS[st2].label+'</button>';
         }).join("")+
       '</div>'+
-      '<p class="hint" style="margin-top:7px">Was beim Termin verkauft wurde, trägt der Closer wie gewohnt in der Firmen-App ein.</p>'+
+      '<p class="hint erkl" style="margin-top:7px">Was beim Termin verkauft wurde, trägt der Closer wie gewohnt in der Firmen-App ein.</p>'+
     '</div>';
-  var foot='<button class="btn" id="moveBtn">Verschieben</button>'+
-    '<button class="btn danger" id="cancelBtn">Absagen</button>'+
-    '<div class="spacer"></div>'+
-    '<button class="btn ghost" id="delBtn" style="color:var(--bad)">Löschen</button>';
+  var foot='<button class="btn" id="moveBtn">Bearbeiten</button>'+
+    '<button class="btn danger" id="cancelBtn">Absagen</button>';
   overlay(name(a),body,foot,"appt");
 
   Array.prototype.forEach.call(document.querySelectorAll(".statusrow button"),function(b){
@@ -3342,24 +3367,7 @@ function openAppt(id){
     };
   });
   $("moveBtn").onclick=function(){ openForm(a); };
-  if($("bestBtn")) $("bestBtn").onclick=function(){ bestaetigungOeffnen(a,false); };
   if($("erinBtn")) $("erinBtn").onclick=function(){ erinnernOeffnen(a); };
-  $("delBtn").onclick=function(){
-    var f=document.querySelector(".panel-foot");
-    f.innerHTML='<div class="confirm" style="width:100%">'+
-      '<p>Termin <b>'+esc(name(a))+'</b> am '+esc(deDate(parseYmd(a.datum)))+' endgültig löschen? '+
-      'Er verschwindet aus dem Kalender und aus dem Verlauf. Für einen Termin, der geplatzt ist, nimm lieber Absagen, dann bleibt er in den Zahlen.</p>'+
-      '<div class="row"><button class="yes" id="delYes">Endgültig löschen</button><button id="delNo">Abbrechen</button></div></div>';
-    $("delNo").onclick=function(){ openAppt(a.id); };
-    $("delYes").onclick=function(){
-      var wer=name(a), wann=deDate(parseYmd(a.datum));
-      closeOverlay();
-      removeAppt(a.id).then(function(){
-        logEvent("abgesagt","Termin "+wer+" am "+wann+" wurde gelöscht");
-        toast("Termin gelöscht.");
-      }).catch(function(){ toast("Löschen hat nicht geklappt."); });
-    };
-  };
   $("cancelBtn").onclick=function(){
     a.status="abgesagt"; a.updatedAt=Date.now(); a.updatedBy=S.me.name;
     upsertAppt(a);
@@ -3447,7 +3455,7 @@ function openForm(edit){
         return [["2880","2 Tage vorher"],["1440","1 Tag vorher"],["180","3 Stunden vorher"],["60","1 Stunde vorher"],["","keine Erinnerung"]]
           .map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===wahl?" selected":"")+'>'+o[1]+'</option>'; }).join("");
       })()+
-    '</select><span class="hint">Der Closer bekommt dann eine Mitteilung und ruft an oder schickt mit einem Tipp die fertige SMS.</span></div>'+
+    '</select><span class="hint erkl">Der Closer bekommt dann eine Mitteilung und ruft an oder schickt mit einem Tipp die fertige SMS.</span></div>'+
     '<div class="field"><label>Freie Zeiten an dem Tag</label><div class="slots" id="slotBox"></div><p class="hint" id="slotHint"></p></div>'+
     '<div id="konfliktBox"></div>'+
     '</div>'+
@@ -3460,11 +3468,17 @@ function openForm(edit){
             return '<option value="'+g+'"'+(String(a.pflegegrad)===g?" selected":"")+'>PG '+g+'</option>';
           })).join("")+'</select></div>'+
       '<div class="field"><label for="f_wohn">Wohnung</label><select id="f_wohn">'+
+        '<option value=""'+(!a.wohnform?" selected":"")+'>nicht gefragt</option>'+
         '<option value="eigentum"'+(a.wohnform==="eigentum"?" selected":"")+'>Eigentum</option>'+
         '<option value="miete"'+(a.wohnform==="miete"?" selected":"")+'>Miete</option>'+
         '<option value="heim"'+(a.wohnform==="heim"?" selected":"")+'>Pflegeheim</option>'+
       '</select></div>'+
     '</div>'+
+    '<div class="field"><label for="f_haus">Lebt noch jemand mit Pflegegrad im Haushalt?</label><select id="f_haus">'+
+      '<option value=""'+(!a.haushalt?" selected":"")+'>nicht gefragt</option>'+
+      '<option value="ja"'+(a.haushalt==="ja"?" selected":"")+'>Ja, zweite Person mit Pflegegrad</option>'+
+      '<option value="nein"'+(a.haushalt==="nein"?" selected":"")+'>Nein</option>'+
+    '</select><span class="hint erkl">Bei Ja kann der Closer beide Personen beraten, das verdoppelt den Termin.</span></div>'+
     '<div id="qualiBox"></div>'+
     '<div class="field"><label>Was im Gespräch fällt, einfach antippen</label>'+
       '<div class="hinweise" id="hinweisBox">'+HINWEISE.map(function(h){
@@ -3475,19 +3489,24 @@ function openForm(edit){
       '<textarea id="f_notiz" placeholder="Bad, Stockwerk, Fliesen, wer entscheidet mit, was der Kunde sich wünscht">'+esc(a.notiz||"")+'</textarea>'+
       '<span class="hint">Keine Diagnosen und keine Medikamente notieren. Das erhebt der Closer vor Ort mit Einwilligung.</span></div>'+
     '<label class="check"><input type="checkbox" id="f_ent"'+(a.entscheider?" checked":"")+'>'+
-      '<span><b>Entscheidet allein</b><br>'+
+      '<span><b>Entscheidet allein</b><span class="erkl"><br>'+
       'Haken setzen, wenn die Person selbst unterschreiben kann. Nicht ankreuzen, wenn Ehepartner, Kinder oder ein Betreuer mitreden. '+
-      'Dann gehören deren Name und Nummer in die Notiz und sie müssen zum Termin dazu.</span></label>'+
+      'Dann gehören deren Name und Nummer in die Notiz und sie müssen zum Termin dazu.</span></span></label>'+
     '<div id="papierWrap"><label class="check"><input type="checkbox" id="f_pap"'+(a.papiere?" checked":"")+'>'+
-      '<span><b>Papiere angekündigt</b><br>'+
-      'Haken setzen, wenn du am Telefon gesagt hast, dass zum Termin bereitliegen sollen: letzter Bericht des Medizinischen Dienstes, Arztberichte, Medikationsplan.</span></label></div>'+
+      '<span><b>Papiere angekündigt</b><span class="erkl"><br>'+
+      'Haken setzen, wenn du am Telefon gesagt hast, dass zum Termin bereitliegen sollen: letzter Bericht des Medizinischen Dienstes, Arztberichte, Medikationsplan.</span></span></label></div>'+
+    '<hr class="sep">'+
+    '<label class="check"><input type="checkbox" id="f_best"'+((!edit||!a.bestaetigtAm)?" checked":"")+'>'+
+      '<span><b>Terminbestätigung an den Kunden senden</b><span class="erkl"><br>'+
+      'Nach dem Speichern öffnet sich der fertige Text für WhatsApp oder SMS.</span></span></label>'+
     '</div>'+
     '<p class="err" id="formErr" hidden></p>';
-  overlay(edit?"Termin verschieben":"Neuer Termin",body,
+  overlay(edit?"Termin bearbeiten":"Neuer Termin",body,
     '<button class="btn ghost" id="zurueckBtn" hidden>Zurück</button>'+
     '<button class="btn primary" id="weiterBtn">Weiter</button>'+
-    '<button class="btn primary" id="saveBtn" hidden>'+(edit?"Termin verschieben":"Termin eintragen")+'</button>'+
-    '<button class="btn ghost" id="abortBtn">Abbrechen</button>',"form");
+    '<button class="btn primary" id="saveBtn" hidden>'+(edit?"Speichern":"Termin eintragen")+'</button>'+
+    '<button class="btn ghost" id="abortBtn">Abbrechen</button>'+
+    (edit?'<div class="spacer"></div><button class="btn ghost" id="formDel" style="color:var(--bad)">Löschen</button>':''),"form");
 
   var schritt=1;
   function zeigeSchritt(n){
@@ -3961,6 +3980,7 @@ function openForm(edit){
     });
   })();
 
+  if($("formDel")) $("formDel").onclick=function(){ terminLoeschenFragen(edit); };
   $("abortBtn").onclick=closeOverlay;
 
   function fehler(msg,focus){
@@ -4009,7 +4029,7 @@ function openForm(edit){
       notiz:$("f_notiz").value.trim(), hinweise:gewaehlt,
       entscheider:$("f_ent").checked, papiere:$("f_pap").checked,
       datum:sel.datum, zeit:sel.zeit, dauer:sel.dauer,
-      anrede:$("f_anrede").value, kundeErinnern:$("f_erinnern").value,
+      anrede:$("f_anrede").value, kundeErinnern:$("f_erinnern").value, haushalt:$("f_haus").value,
       art:edit?(edit.art||"beratung"):"beratung",
       bestaetigtAm:edit?(edit.bestaetigtAm||""):"", bestaetigtVon:edit?(edit.bestaetigtVon||""):"",
       closer:sel.closer, setter:edit?edit.setter:S.me.name,
@@ -4018,7 +4038,7 @@ function openForm(edit){
       createdAt:edit?edit.createdAt:Date.now(),
       updatedAt:Date.now(), updatedBy:S.me.name
     };
-    var zeitNeu = !edit || edit.datum!==obj.datum || edit.zeit!==obj.zeit;
+    var mitBestaetigung = $("f_best") && $("f_best").checked;
     upsertAppt(obj).then(function(antwort){
       var wer=(vor+" "+nach).trim();
       if(antwort&&antwort.id&&antwort.id!==obj.id){
@@ -4031,8 +4051,8 @@ function openForm(edit){
       closeOverlay();
       S.weekStart=mondayOf(parseYmd(obj.datum));
       render();
-      toast(wasMove?"Termin verschoben, alle sind informiert.":"Termin eingetragen, alle sind informiert.");
-      if(zeitNeu) setTimeout(function(){ bestaetigungOeffnen(obj,true); },250);
+      toast(wasMove?"Termin gespeichert, alle sind informiert.":"Termin eingetragen, alle sind informiert.");
+      if(mitBestaetigung) setTimeout(function(){ bestaetigungOeffnen(obj,true); },250);
     }).catch(function(){ fail("Speichern hat nicht geklappt. Probier es noch einmal."); });
   };
   setTimeout(function(){ var f=$("f_vor"); if(f&&!edit) f.focus(); },60);
@@ -4060,6 +4080,24 @@ function themaAnwenden(){
   var m=document.querySelector('meta[name="theme-color"]');
   if(m) m.setAttribute("content", t==="dunkel" ? "#0C1420" : "#1657B0");
 }
+/* Erklärtexte: für neue Geräte an, jeder schaltet sie selbst aus */
+function hilfe(){
+  var h=null;
+  try{ h=localStorage.getItem("sb_hilfe"); }catch(e){}
+  return (h==="aus")?"aus":"an";
+}
+function hilfeAnwenden(){ document.body.classList.toggle("ohne-hilfe", hilfe()==="aus"); }
+function zeichneHilfe(){
+  var box=$("hilfeBar"); if(!box) return;
+  Array.prototype.forEach.call(box.querySelectorAll("button"),function(b){
+    b.setAttribute("aria-pressed",String(b.dataset.h===hilfe()));
+    b.onclick=function(){
+      try{ localStorage.setItem("sb_hilfe",b.dataset.h); }catch(e){}
+      hilfeAnwenden(); zeichneHilfe();
+    };
+  });
+}
+
 function zeichneThema(){
   var box=$("themaBar"); if(!box) return;
   Array.prototype.forEach.call(box.querySelectorAll("button"),function(b){
@@ -4187,7 +4225,7 @@ function zeichneTeilen(){
     return;
   }
   box.innerHTML='<div class="sec-label" style="margin-bottom:6px">Setter einladen</div>'+
-    '<p class="hint" style="margin-bottom:8px">Link erzeugen und per WhatsApp schicken. Wer ihn öffnet, legt sich an und ist sofort in deinem Kalender, ohne dass du noch etwas bestätigen musst.</p>'+
+    '<p class="hint erkl" style="margin-bottom:8px">Link erzeugen und per WhatsApp schicken. Wer ihn öffnet, legt sich an und ist sofort in deinem Kalender, ohne dass du noch etwas bestätigen musst.</p>'+
     '<button class="btn" id="einlGo">Einladungslink erstellen</button>'+
     '<div id="einlOut" style="margin-top:10px"></div>';
 
@@ -4246,7 +4284,7 @@ function zeichnePush(){
     p.then(function(){
       b.disabled=false;
       toast(an?"Dieses Gerät bekommt keine Mitteilungen mehr.":"Mitteilungen sind an.");
-      zeichnePush(); zeichneThema(); zeichneFreigaben(); zeichneAnfragen(); zeichneTeilen();
+      zeichnePush(); zeichneThema(); zeichneHilfe(); zeichneFreigaben(); zeichneAnfragen(); zeichneTeilen();
 
   var fb=$("fassungBtn");
   if(fb) fb.onclick=function(){
@@ -4320,7 +4358,7 @@ function openWho(){
   if(istAdmin()){
     var cs3=closers();
     body=zugangKasten+'<div class="sec-label" style="margin-bottom:6px">Zugänge</div>'+
-      '<p class="hint" style="margin-bottom:8px">Antippen zeigt die Namen. Der Schlüssel vergibt ein neues Passwort, das ✕ entzieht den Zugang.</p>'+
+      '<p class="hint erkl" style="margin-bottom:8px">Antippen zeigt die Namen. Der Schlüssel vergibt ein neues Passwort, das ✕ entzieht den Zugang.</p>'+
       '<div class="gruppen">'+
         gruppe("closer","Closer und Setter", closerMitSettern())+
         gruppe("monteur","Applikateure", S.team.filter(function(m){ return m.rolle==="monteur"; }))+
@@ -4328,7 +4366,7 @@ function openWho(){
       '</div>'+
       '<hr class="sep">'+
       '<div><div class="sec-label" style="margin-bottom:6px">Zugang anlegen</div>'+
-        '<p class="hint" style="margin-bottom:8px">Closer und Applikateur bekommen einen eigenen Kalender, der Setter arbeitet in einem fremden. Die Verwaltung sieht alles und plant die Einbauten. Benutzername und Passwort vergibst du hier und gibst sie weiter.</p>'+
+        '<p class="hint erkl" style="margin-bottom:8px">Closer und Applikateur bekommen einen eigenen Kalender, der Setter arbeitet in einem fremden. Die Verwaltung sieht alles und plant die Einbauten. Benutzername und Passwort vergibst du hier und gibst sie weiter.</p>'+
         '<div class="two" style="margin-bottom:10px">'+
           '<div class="field"><label for="ad_name">Name</label><input id="ad_name" autocomplete="off"></div>'+
           '<div class="field"><label for="ad_rolle">Rolle</label><select id="ad_rolle">'+
@@ -4352,7 +4390,7 @@ function openWho(){
   } else if(S.me.rolle==="closer"){
     var liste=meineSetter();
     body=zugangKasten+
-      '<p class="hint">Dein Kalender gehört dir. Nur Setter, denen du hier einen Zugang gibst, sehen ihn und können Termine eintragen.</p>'+
+      '<p class="hint erkl">Dein Kalender gehört dir. Nur Setter, denen du hier einen Zugang gibst, sehen ihn und können Termine eintragen.</p>'+
       '<div><div class="sec-label" style="margin-bottom:6px">Deine Setter</div>'+
       (liste.length
         ? '<div class="people" id="whoList">'+liste.map(function(m){
@@ -4374,7 +4412,7 @@ function openWho(){
       '</div>'+
       '<hr class="sep">'+
       '<div><div class="sec-label" style="margin-bottom:6px">So stehst du in der Terminbestätigung</div>'+
-        '<p class="hint" style="margin-bottom:8px">Der Setter schickt dem Kunden nach dem Termin deine Nummer. Ohne sie steht dort ein Platzhalter.</p>'+
+        '<p class="hint erkl" style="margin-bottom:8px">Der Setter schickt dem Kunden nach dem Termin deine Nummer. Ohne sie steht dort ein Platzhalter.</p>'+
         '<div class="two" style="margin-bottom:8px">'+
           '<div class="field"><label for="ct_anrede">Anrede</label><select id="ct_anrede">'+
             '<option value="">bitte wählen</option>'+
@@ -4395,7 +4433,7 @@ function openWho(){
       '<dt>Benutzer</dt><dd class="mono">'+esc(S.me.benutzer||"—")+'</dd>'+
       '<dt>Kalender</dt><dd>'+esc(S.me.gehoertZu||"—")+'</dd>'+
       '</div>'+
-      '<p class="hint">Du trägst Termine im Kalender von '+esc(S.me.gehoertZu||"deinem Closer")+' ein. '+
+      '<p class="hint erkl">Du trägst Termine im Kalender von '+esc(S.me.gehoertZu||"deinem Closer")+' ein. '+
       'Andere Kalender sind für dich nicht sichtbar.</p>';
   }
   if(istAdmin()){
@@ -4419,6 +4457,14 @@ function openWho(){
       '</div>'+
     '</div>'+
     '<hr class="sep">'+
+    '<div><div class="sec-label" style="margin-bottom:6px">Erklärungen</div>'+
+      '<div class="modus" id="hilfeBar">'+
+        '<button data-h="an">An</button>'+
+        '<button data-h="aus">Aus</button>'+
+      '</div>'+
+      '<p class="hint erkl" style="margin-top:6px">Die kleinen grauen Erklärtexte unter Knöpfen und Feldern. Wer sich auskennt, schaltet sie aus. Warnungen bleiben immer sichtbar.</p>'+
+    '</div>'+
+    '<hr class="sep">'+
     '<div><div class="sec-label" style="margin-bottom:6px">Mitteilungen aufs Handy</div>'+
       '<div id="pushBox"></div>'+
     '</div>'+
@@ -4433,7 +4479,7 @@ function openWho(){
   var okBtn=$("zugangOk");
   if(okBtn) okBtn.onclick=function(){ S.neuerZugang=null; openWho(); };
 
-  zeichnePush(); zeichneThema(); zeichneFreigaben(); zeichneAnfragen(); zeichneTeilen();
+  zeichnePush(); zeichneThema(); zeichneHilfe(); zeichneFreigaben(); zeichneAnfragen(); zeichneTeilen();
 
   var fb=$("fassungBtn");
   if(fb) fb.onclick=function(){
@@ -4643,7 +4689,7 @@ function neuerungenHtml(){
   return '<div class="neuerungen">'+
     '<div class="n-kopf"><b>Neu in dieser Fassung</b><span class="mono">Stand '+esc(NEUERUNGEN.stand.slice(0,10))+'</span></div>'+
     '<ul>'+NEUERUNGEN.punkte.map(function(t){ return '<li>'+esc(t)+'</li>'; }).join("")+'</ul>'+
-    '<p class="hint">Wenn etwas davon bei dir nicht auftaucht, App einmal schließen und neu öffnen.</p>'+
+    '<p class="hint erkl">Wenn etwas davon bei dir nicht auftaucht, App einmal schließen und neu öffnen.</p>'+
   '</div>';
 }
 
@@ -4674,7 +4720,7 @@ function openSperren(){
   var c=meinCloser();
   var meine=S.sperr.filter(function(x){ return x.closer===c; })
     .sort(function(a,b){ return a.datum<b.datum?-1:1; });
-  var body='<p class="hint">Gestrichene Tage sind für die Setter gesperrt, sie können dort keinen Termin eintragen und sehen den Grund im Kalender.</p>'+
+  var body='<p class="hint erkl">Gestrichene Tage sind für die Setter gesperrt, sie können dort keinen Termin eintragen und sehen den Grund im Kalender.</p>'+
     '<div class="two">'+
       '<div class="field"><label for="sp_datum">Tag</label><input type="date" id="sp_datum" class="mono" value="'+esc(ymd(new Date()))+'"></div>'+
       '<div class="field"><label for="sp_grund">Grund, kurz</label><input id="sp_grund" autocomplete="off" placeholder="Hochzeit, Urlaub, privat"></div>'+
