@@ -136,6 +136,15 @@ und pausiert nach einer Woche ohne Nutzung.
 - Offene Fenster halten die Seite mit `seiteFesthalten()` fest (body `position:fixed`).
   `overflow:hidden` allein reicht auf dem iPhone nicht, die Seite rutscht sonst mit.
 
+## Designkopie zum Tüfteln (Stand 29.09.2026)
+
+`werkzeuge/designkopie.py ZIEL` baut aus `index.html` eine Kopie ohne Datenbank:
+Supabase fliegt raus, `demoStore()` liefert ausgedachte Kunden, man ist automatisch
+angemeldet und schaltet unten links die Rolle um. Veröffentlicht als Artefakt:
+https://claude.ai/artifact/RpC9iEfAWiexSX5D5cB2Vj
+Änderungen dort fließen nicht zurück. Was Eljakim dort gut findet, wird von Hand in
+`index.html` übernommen, danach die Kopie neu bauen und dasselbe Artefakt aktualisieren.
+
 ## Offen, für später vorgemerkt
 
 **Route und Fahrzeit über einen echten Dienst.** Heute ist beides selbst gerechnet:
