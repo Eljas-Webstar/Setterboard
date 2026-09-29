@@ -125,6 +125,17 @@ Overpass-Server ist nicht für gewerbliche Nutzung. Ersatz geplant: Straßenverz
 eigenen PLZ einmal herunterladen und mitliefern. Supabase Free hat kein nutzbares Backup
 und pausiert nach einer Woche ohne Nutzung.
 
+## Scrollen auf dem Handy (Stand 29.09.2026)
+
+- Im Kalender scrollt die **Seite**, kein eigener Scrollbereich. Der Umbau vom 21.09. mit
+  `#view-week` als Scroller fühlte sich auf dem iPhone falsch an, vor allem in der Woche,
+  wo senkrechtes und seitliches Scrollen um den Finger stritten.
+- Datumsleiste klebt mit `top:var(--kopfh)`, `kopfhoeheMessen()` hält den Wert aktuell.
+- **Falle:** `overflow-x:hidden` auf html und body macht body zum Scrollcontainer, dann klebt
+  nichts mehr. Deshalb `overflow-x:clip`.
+- Offene Fenster halten die Seite mit `seiteFesthalten()` fest (body `position:fixed`).
+  `overflow:hidden` allein reicht auf dem iPhone nicht, die Seite rutscht sonst mit.
+
 ## Offen, für später vorgemerkt
 
 **Route und Fahrzeit über einen echten Dienst.** Heute ist beides selbst gerechnet:
