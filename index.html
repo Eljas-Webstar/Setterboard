@@ -154,7 +154,8 @@ main{flex:1;max-width:1440px;width:100%;margin:0 auto;padding-inline:16px;paddin
 .heute-stark.ruht{background:var(--surface);border-color:var(--line);color:var(--ink-3);font-weight:600}
 
 /* Wochenraster auf schmalen Geraeten seitwaerts schiebbar */
-html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
+/* clip statt hidden: schneidet seitlich ab, ohne dass Kopfzeile und Datumsleiste ihr Kleben verlieren */
+html,body{max-width:100%;overflow-x:hidden;overflow-x:clip;overscroll-behavior-x:none}
 .calscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 /* Abstand zwischen den Feldgruppen im Terminformular */
 #schritt1>.two,#schritt2>.two{margin-bottom:12px}
@@ -196,14 +197,14 @@ html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
 .mpunkte{display:flex;gap:3px;flex-wrap:wrap;margin-top:1px}
 .mpunkte i{width:7px;height:7px;border-radius:999px;background:var(--st,var(--accent));display:block}
 .weekwrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
-/* In der Kalenderansicht wandert nur der Inhalt, die Steuerleiste bleibt oben kleben */
-body.kalenderansicht .app{height:100vh;height:100dvh;min-height:0}
-body.kalenderansicht main{min-height:0;overflow:hidden;display:flex;flex-direction:column;padding-block:0}
-body.kalenderansicht #view-week{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  overscroll-behavior-y:contain;padding-top:0;padding-bottom:96px}
-body.kalenderansicht #pushBanner{margin-top:16px}
-body.kalenderansicht .weekbar{position:sticky;top:0;z-index:20;background:var(--paper);
+/* Im Kalender scrollt die ganze Seite wie überall. Die Datumsleiste klebt direkt
+   unter der Kopfzeile, --kopfh misst die Höhe der Kopfzeile (siehe kopfhoeheMessen). */
+body.kalenderansicht .weekbar{position:sticky;top:var(--kopfh,0px);z-index:20;background:var(--paper);
   padding-block:8px;margin-bottom:8px}
+/* Tag: das Raster steht fest, nur die Seite bewegt sich nach oben und unten */
+.cal:not(.wochenmodus){overflow-x:hidden;touch-action:pan-y}
+/* Woche: seitlich durch die Tage schieben, nach oben und unten bewegt sich die Seite */
+.calscroll{overflow-y:hidden}
 .weekmain{min-width:0}
 .side{
   position:sticky;top:70px;background:var(--surface);border:1px solid var(--line);
@@ -336,15 +337,20 @@ body.kalenderansicht .weekbar{position:sticky;top:0;z-index:20;background:var(--
   .griff{display:none}
   .panel{
     width:100%;border-left:0;
+    height:100vh;height:100dvh;bottom:auto;overflow:hidden;
     overscroll-behavior:contain;
     padding-bottom:env(safe-area-inset-bottom);
+    animation:none!important;
   }
   .panel-body{
     overscroll-behavior:contain;
     -webkit-overflow-scrolling:touch;
     touch-action:pan-y;
+    overflow-x:hidden;
     padding:14px;
   }
+  .panel-body>*{min-width:0;max-width:100%}
+  .panel-head,.panel-foot{touch-action:none}
   .panel-head{padding:12px 14px}
   .panel-foot{padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
 }
@@ -831,7 +837,7 @@ main{padding-bottom:86px}
 var SB_URL = "https://zdacotoynkvzlagwfdxp.supabase.co";
 var SB_KEY = "sb_publishable_srsIOGv6u1AuNBkh9gpPvA_NrfVkLv8";
 var MAIL_DOMAIN = "@setterboard.local";
-var VERSION = "2026-09-27-2307";
+var VERSION = "2026-09-29-1154";
 // Öffentlicher Push-Schlüssel. Wird in push-einrichten.md erzeugt und hier eingesetzt.
 var PUSH_KEY = "BPqVEClcaZ_yJADspT2_CNMr3MDsSBmqqR_hKbpbcH3AeBwHObGmFr-R9wXXxxC1vCSLxLALL9j1N6lB9_Q5Xko";
 /* Angemeldet bleiben.
@@ -1713,7 +1719,7 @@ function fahrtPruefung(datum,closer,vonMin,dauer,plzNeu,ortNeu,ausserId){
 
 /* ---------------- boot ---------------- */
 function start(){
-  themaAnwenden(); hilfeAnwenden(); einladungAusLink(); renderGate(); wire(); claudeDb(); PUSH.start();
+  themaAnwenden(); hilfeAnwenden(); kopfhoeheMessen(); einladungAusLink(); renderGate(); wire(); claudeDb(); PUSH.start();
   versionPruefen();
   setInterval(versionPruefen,600000);
   document.addEventListener("visibilitychange",function(){ if(!document.hidden) versionPruefen(); });
@@ -2319,7 +2325,6 @@ function render(){
   if(S.letzteSicht!==S.view){
     S.letzteSicht=S.view;
     try{ window.scrollTo(0,0); }catch(e){}
-    var vw=$("view-week"); if(vw) vw.scrollTop=0;
   }
   if(S.view==="home") renderHome();
   else if(S.view==="heute") renderHeute();
@@ -3063,10 +3068,27 @@ function closeOverlay(){
   $("overlays").innerHTML="";
   document.body.style.overflow="";
   document.body.classList.remove("panel-offen");
+  seiteFreigeben();
 }
+var seiteFest=null;   // Scrollposition, solange ein Fenster offen ist
+function seiteFesthalten(){
+  if(seiteFest!==null) return;
+  seiteFest=window.scrollY||window.pageYOffset||0;
+  var b=document.body.style;
+  b.position="fixed"; b.top=(-seiteFest)+"px"; b.left="0"; b.right="0"; b.width="100%";
+}
+function seiteFreigeben(){
+  if(seiteFest===null) return;
+  var y=seiteFest; seiteFest=null;
+  var b=document.body.style;
+  b.position=""; b.top=""; b.left=""; b.right=""; b.width="";
+  window.scrollTo(0,y);
+}
+
 function overlay(title,bodyHtml,footHtml,tag){
   document.body.style.overflow="hidden";
   document.body.classList.add("panel-offen");
+  seiteFesthalten();
   $("overlays").innerHTML=
     '<button class="scrim" id="scrim" aria-label="Schließen"></button>'+
     '<aside class="panel" data-overlay="'+esc(tag||"x")+'" role="dialog" aria-modal="true">'+
@@ -4080,6 +4102,17 @@ function themaAnwenden(){
   var m=document.querySelector('meta[name="theme-color"]');
   if(m) m.setAttribute("content", t==="dunkel" ? "#0C1420" : "#1657B0");
 }
+/* Höhe der Kopfzeile, damit die Datumsleiste im Kalender genau darunter kleben bleibt */
+function kopfhoeheMessen(){
+  var kopf=document.querySelector("header.top"); if(!kopf) return;
+  var setzen=function(){
+    document.documentElement.style.setProperty("--kopfh", Math.round(kopf.getBoundingClientRect().height)+"px");
+  };
+  setzen();
+  if(window.ResizeObserver) new ResizeObserver(setzen).observe(kopf);
+  else window.addEventListener("resize",setzen);
+}
+
 /* Erklärtexte: für neue Geräte an, jeder schaltet sie selbst aus */
 function hilfe(){
   var h=null;
